@@ -1,0 +1,9 @@
+expo.modules.appdiscovery.app-discovery-pngs-0 C:\Nest\modules\app-discovery\android\build\generated\res\pngs\debug
+expo.modules.appdiscovery.app-discovery-updated_navigation_xml-1 C:\Nest\modules\app-discovery\android\build\generated\updated_navigation_xml\debug
+expo.modules.appdiscovery.app-discovery-mergeDebugResources-2 C:\Nest\modules\app-discovery\android\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+expo.modules.appdiscovery.app-discovery-mergeDebugResources-3 C:\Nest\modules\app-discovery\android\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+expo.modules.appdiscovery.app-discovery-debug-4 C:\Nest\modules\app-discovery\android\build\intermediates\merged_res\debug\mergeDebugResources
+expo.modules.appdiscovery.app-discovery-debug-5 C:\Nest\modules\app-discovery\android\build\intermediates\packaged_res\debug\packageDebugResources
+expo.modules.appdiscovery.app-discovery-debug-6 C:\Nest\modules\app-discovery\android\src\debug\res
+expo.modules.appdiscovery.app-discovery-main-7 C:\Nest\modules\app-discovery\android\src\main\res
+gradleHome-0 C:\Users\Y-man\.gradle

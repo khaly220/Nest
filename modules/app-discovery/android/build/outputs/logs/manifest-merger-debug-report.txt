@@ -1,0 +1,42 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:1:1-17:12
+INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:1:1-17:12
+	package
+		INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:1:11-69
+application
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:2:3-16:17
+receiver#expo.modules.appdiscovery.AppDeviceAdminReceiver
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:3:5-15:16
+	android:label
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:7:7-39
+	android:exported
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:6:7-30
+	android:permission
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:8:7-64
+	android:description
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:5:7-45
+	android:name
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:4:7-70
+meta-data#android.app.device_admin
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:9:7-11:52
+	android:resource
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:11:9-49
+	android:name
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:10:9-48
+intent-filter#action:name:android.app.action.DEVICE_ADMIN_ENABLED
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:12:7-14:23
+action#android.app.action.DEVICE_ADMIN_ENABLED
+ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:13:9-74
+	android:name
+		ADDED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml:13:17-71
+uses-sdk
+INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml
+INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Nest\modules\app-discovery\android\src\main\AndroidManifest.xml

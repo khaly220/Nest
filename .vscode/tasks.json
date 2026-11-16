@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and launch Nest on Android",
+			"type": "shell",
+			"command": "npx expo run:android --no-bundler",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

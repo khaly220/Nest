@@ -1,0 +1,2 @@
+expo.modules.appdiscovery
+xml app_device_admin

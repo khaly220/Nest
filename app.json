@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Nest",
+    "slug": "Nest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nest",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F8FAFC",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.Nest"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-secure-store",
+      "expo-system-ui",
+      "expo-status-bar",
+      "expo-router",
+      "expo-font",
+      "./plugins/withAppDiscovery",
+      "expo-splash-screen"
+    ]
+  }
+}
