@@ -27,6 +27,12 @@ const LOCKOUT_MS = 5 * 60 * 1000;
 const ADMIN_SESSION_MS = 10 * 60 * 1000;
 let databasePromise: Promise<SQLite.SQLiteDatabase> | undefined;
 let authorizedAdministrator: { id: string; expiresAt: number } | null = null;
+let authorizedMemberPinReset: {
+  administratorId: string;
+  familyId: string;
+  memberId: string;
+  expiresAt: number;
+} | null = null;
 
 type DiagnosticDetails = Record<string, string | number | boolean | string[]>;
 
@@ -65,6 +71,44 @@ function requireAdministrator(administratorId: string) {
 
 export function lockAdministrator() {
   authorizedAdministrator = null;
+  authorizedMemberPinReset = null;
+}
+
+/** Allows one member PIN reset after the caller has verified the device credential. */
+export function authorizeMemberPinResetWithDeviceCredential(
+  administratorId: string,
+  familyId: string,
+  memberId: string,
+) {
+  authorizedMemberPinReset = {
+    administratorId,
+    familyId,
+    memberId,
+    expiresAt: Date.now() + 30_000,
+  };
+}
+
+function requireMemberPinResetAuthorization(administratorId: string, familyId: string, memberId: string) {
+  try {
+    requireAdministrator(administratorId);
+    authorizedMemberPinReset = null;
+    return;
+  } catch (cause) {
+    const grant = authorizedMemberPinReset;
+    if (
+      cause instanceof Error &&
+      cause.message === 'ADMIN_AUTH_REQUIRED' &&
+      grant?.administratorId === administratorId &&
+      grant.familyId === familyId &&
+      grant.memberId === memberId &&
+      grant.expiresAt > Date.now()
+    ) {
+      authorizedMemberPinReset = null;
+      return;
+    }
+    if (grant && grant.expiresAt <= Date.now()) authorizedMemberPinReset = null;
+    throw cause;
+  }
 }
 
 async function initializeDatabase() {
@@ -376,9 +420,10 @@ export async function authenticateMember(memberId: string, pin: string): Promise
 }
 
 export async function resetMemberPin(administratorId: string, familyId: string, memberId: string, pin: string) {
-  requireAdministrator(administratorId);
   if (!/^\d{6,8}$/.test(pin)) throw new Error('PIN_POLICY');
   const db = await getDatabase();
+  if (await pinIsInUse(db, pin, memberId)) throw new Error('PIN_TAKEN');
+  requireMemberPinResetAuthorization(administratorId, familyId, memberId);
   const pinHash = await hashSecret(pin);
   const result = await db.runAsync('UPDATE member_credentials SET pin_hash = ?, failed_attempts = 0, locked_until = 0, updated_at = ? WHERE member_id = ? AND EXISTS (SELECT 1 FROM members WHERE id = ? AND family_id = ?)', pinHash, new Date().toISOString(), memberId, memberId, familyId);
   if (result.changes !== 1) throw new Error('MEMBER_NOT_FOUND');
@@ -425,7 +470,23 @@ export type AuditEventRecord = {
 export async function listAuditEvents(familyId: string, limit = 60): Promise<AuditEventRecord[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ id: string; event_type: string; actor_id: string | null; subject_id: string | null; created_at: string }>(
-    'SELECT id, event_type, actor_id, subject_id, created_at FROM audit_events WHERE family_id = ? ORDER BY created_at DESC LIMIT ?',
+    `SELECT id, event_type, actor_id, subject_id, created_at
+       FROM audit_events WHERE family_id = ?
+     UNION ALL
+     SELECT id,
+       CASE
+         WHEN identity_type = 'administrator' AND successful = 1 THEN 'administrator_sign_in_succeeded'
+         WHEN identity_type = 'administrator' THEN 'administrator_sign_in_failed'
+         WHEN successful = 1 THEN 'member_sign_in_succeeded'
+         ELSE 'member_sign_in_failed'
+       END AS event_type,
+       NULL AS actor_id, identity_id AS subject_id, created_at
+       FROM authentication_attempts
+      WHERE (identity_type = 'administrator' AND identity_id = (SELECT administrator_id FROM families WHERE id = ?))
+         OR (identity_type = 'member' AND identity_id IN (SELECT id FROM members WHERE family_id = ?))
+     ORDER BY created_at DESC LIMIT ?`,
+    familyId,
+    familyId,
     familyId,
     limit,
   );

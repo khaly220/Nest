@@ -38,9 +38,9 @@ export default function MemberIdentificationScreen() {
   return (
     <ScreenContainer scroll>
       <AppHeader
-        backLabel="Back to welcome"
+        backLabel="Administrator sign-in"
         eyebrow="Member sign-in"
-        onBack={() => router.replace('/welcome')}
+        onBack={() => router.replace('/sign-in')}
         subtitle="Pick the profile that belongs to you. Each profile has its own PIN and its own applications."
         title="Who's using this device?"
       />
@@ -49,10 +49,10 @@ export default function MemberIdentificationScreen() {
         <LoadingState message="Looking for profiles on this device…" />
       ) : members.length === 0 ? (
         <EmptyState
-          actionLabel="Back to welcome"
+          actionLabel="Administrator sign-in"
           icon="people-outline"
           message="No member profiles exist on this device yet. An administrator needs to add one from Settings before anyone can sign in here."
-          onAction={() => router.replace('/welcome')}
+          onAction={() => router.replace('/sign-in')}
           title="No profiles yet"
         />
       ) : (

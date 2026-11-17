@@ -13,7 +13,6 @@ import {
   activityFilters,
   filterActivity,
   loadRecordedActivity,
-  previewActivity,
 } from '@/data/services/activityService';
 import type { ActivityFilter } from '@/data/services/activityService';
 import { useFamilySession } from '@/hooks/useFamilySession';
@@ -29,6 +28,7 @@ export default function ActivityScreen() {
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!family) return null;
@@ -40,9 +40,16 @@ export default function ActivityScreen() {
 
   useEffect(() => {
     let active = true;
-    void load().then((result) => {
-      if (active && result) setRecorded(result);
-    });
+    void load()
+      .then((result) => {
+        if (active && result) {
+          setRecorded(result);
+          setLoadError(null);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) setLoadError(cause instanceof Error ? cause.message : 'Unknown error');
+      });
     return () => {
       active = false;
     };
@@ -52,24 +59,20 @@ export default function ActivityScreen() {
     setRefreshing(true);
     void load()
       .then((result) => {
-        if (result) setRecorded(result);
+        if (result) {
+          setRecorded(result);
+          setLoadError(null);
+        }
       })
+      .catch((cause: unknown) => setLoadError(cause instanceof Error ? cause.message : 'Unknown error'))
       .finally(() => setRefreshing(false));
   }, [load]);
 
   const all = useMemo(
     () =>
-      [
-        ...(family && recorded?.familyId === family.id ? recorded.events : []),
-        ...previewActivity(),
-      ].sort((first, second) => second.createdAt.localeCompare(first.createdAt)),
+      family && recorded?.familyId === family.id ? recorded.events : [],
     [family, recorded],
   );
-
-  const counts = useMemo(() => {
-    const preview = all.filter((event) => event.sample).length;
-    return { total: all.length, recorded: all.length - preview, preview };
-  }, [all]);
 
   const chipOptions = useMemo(
     () => activityFilters.map((option) => ({ ...option, count: filterActivity(all, option.id).length })),
@@ -105,14 +108,15 @@ export default function ActivityScreen() {
     >
       <AppHeader
         eyebrow="Activity"
-        subtitle="Every change recorded on this device. Preview entries are labelled so they are never mistaken for real history."
+        subtitle="Changes recorded in this family's local history."
         title="History"
       />
 
       <StatRow>
-        <StatTile icon="pulse-outline" label="Recorded" tone="forest" value={`${counts.recorded}`} />
-        <StatTile icon="sparkles-outline" label="Preview entries" tone="sage" value={`${counts.preview}`} />
+        <StatTile icon="pulse-outline" label="Recorded events" tone="forest" value={`${all.length}`} />
       </StatRow>
+
+      {loadError ? <NoticeCard message={`Local activity could not be loaded: ${loadError}`} title="Activity unavailable" tone="danger" /> : null}
 
       <SearchBar onChangeText={setQuery} placeholder="Search history" value={query} />
       <FilterChips onChange={(id) => setFilter(id as ActivityFilter)} options={chipOptions} value={filter} />
@@ -130,7 +134,7 @@ export default function ActivityScreen() {
             ))}
           </ActivityGroup>
         ))
-      ) : (
+      ) : loadError ? null : (
         <EmptyState
           icon="pulse-outline"
           message={
@@ -141,11 +145,6 @@ export default function ActivityScreen() {
           title={query ? 'Nothing matches' : 'Nothing recorded yet'}
         />
       )}
-
-      <NoticeCard
-        message="Entries tagged Preview come from a sample history used while the audit backend phase is pending. Everything else was written by the encrypted store on this device."
-        title="About this timeline"
-      />
     </ScreenContainer>
   );
 }

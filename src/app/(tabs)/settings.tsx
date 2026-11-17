@@ -36,7 +36,7 @@ export default function SettingsTabScreen() {
     setSignOutVisible(false);
     signOutAdministrator();
     toast.show('Signed out of the administrator account', 'default');
-    router.replace('/welcome');
+    router.replace('/sign-in');
   };
 
   return (

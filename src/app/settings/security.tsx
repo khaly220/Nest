@@ -116,6 +116,12 @@ export default function SecuritySettingsScreen() {
       <SectionHeader subtitle="Behaviour that is built into the encrypted local store." title="Sign-in policy" />
       <SettingsGroup>
         <SettingsRow
+          description="Member profiles lock when Nest leaves the foreground. Enter the profile PIN to continue."
+          icon="lock-closed-outline"
+          title="Member session"
+          value="Lock on resume"
+        />
+        <SettingsRow
           description="Writes to the store are only accepted inside this window."
           icon="time-outline"
           title="Administrator window"
@@ -128,6 +134,12 @@ export default function SecuritySettingsScreen() {
           value="5 attempts"
         />
         <SettingsRow description="How long a lockout lasts." icon="pause-circle-outline" title="Lockout" value="5 minutes" />
+        <SettingsRow
+          description="On mobile, resetting a member PIN requires device screen-lock verification. Web uses the administrator password."
+          icon="shield-checkmark-outline"
+          title="Member PIN reset"
+          value="Device credential"
+        />
         <SettingsRow description="Hashing used for administrator passwords and member PINs." icon="key-outline" last title="Storage" value="bcrypt cost 12" />
       </SettingsGroup>
 

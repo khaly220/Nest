@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -13,17 +13,26 @@ import { ThemeProvider, useTheme } from '@/theme';
 const administratorRoots = new Set(['(tabs)', 'members', 'device', 'settings']);
 
 function RouteGuard() {
-  const { admin, ready } = useFamilySession();
+  const { admin, family, lockedMemberId, ready } = useFamilySession();
   const segments = useSegments();
+  const { memberId } = useLocalSearchParams<{ memberId?: string }>();
   const router = useRouter();
 
   useEffect(() => {
     if (!ready) return;
     const root = segments[0];
-    if (root && administratorRoots.has(root) && !admin) {
-      router.replace('/welcome');
+    if (lockedMemberId && !admin) {
+      const isLockedVerification =
+        root === 'member' && segments[1] === 'verify' && memberId === lockedMemberId;
+      if (!isLockedVerification && root !== 'sign-in') {
+        router.replace(`/member/verify?memberId=${encodeURIComponent(lockedMemberId)}`);
+      }
+      return;
     }
-  }, [admin, ready, router, segments]);
+    if (root && administratorRoots.has(root) && !admin) {
+      router.replace(family ? '/sign-in' : '/create-family');
+    }
+  }, [admin, family, lockedMemberId, memberId, ready, router, segments]);
 
   return null;
 }
@@ -42,8 +51,6 @@ function RootNavigator() {
         }}
       >
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
-        <Stack.Screen name="welcome" />
-        <Stack.Screen name="intro" />
         <Stack.Screen name="create-family" />
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="success" options={{ animation: 'fade_from_bottom' }} />

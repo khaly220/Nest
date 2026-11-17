@@ -36,6 +36,12 @@
       "expo-status-bar",
       "expo-router",
       "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Nest uses Face ID to confirm the device owner before resetting a member PIN."
+        }
+      ],
       "./plugins/withAppDiscovery",
       "expo-splash-screen"
     ]

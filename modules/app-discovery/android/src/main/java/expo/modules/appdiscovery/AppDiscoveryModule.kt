@@ -3,11 +3,12 @@ package expo.modules.appdiscovery
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.LauncherApps
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.content.Intent
+import android.os.Process
 import android.util.Base64
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -69,16 +70,16 @@ class AppDiscoveryModule : Module() {
       val context = appContext.reactContext
         ?: throw IllegalStateException("Application context is unavailable")
       val packageManager = context.packageManager
-      val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+      val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
-      packageManager.queryIntentActivities(launchIntent, 0)
+      launcherApps.getActivityList(null, Process.myUserHandle())
         .asSequence()
-        .mapNotNull { result ->
-          val activityInfo = result.activityInfo ?: return@mapNotNull null
-          val packageName = activityInfo.packageName
+        .distinctBy { it.applicationInfo.packageName }
+        .mapNotNull { launcherActivity ->
+          val applicationInfo = launcherActivity.applicationInfo
+          val packageName = applicationInfo.packageName
           if (packageName == context.packageName) return@mapNotNull null
 
-          val applicationInfo = activityInfo.applicationInfo
           val label = packageManager.getApplicationLabel(applicationInfo).toString().trim()
           if (label.isEmpty()) return@mapNotNull null
 
@@ -89,7 +90,6 @@ class AppDiscoveryModule : Module() {
             "isSystemApp" to ((applicationInfo.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0)
           )
         }
-        .distinctBy { it["id"] }
         .sortedBy { it["name"]?.toString()?.lowercase(Locale.ROOT) }
         .toList()
     }

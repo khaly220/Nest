@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { Button } from '@/components/common/Button';
 import { NoticeCard } from '@/components/common/InlineMessage';
 import { NestMark } from '@/components/common/NestMark';
 import { useFamilySession } from '@/hooks/useFamilySession';
@@ -12,7 +11,7 @@ import { makeStyles, spacing, typography, useTheme } from '@/theme';
 
 /** Splash screen: opens the encrypted local store before anything else. */
 export default function SplashScreen() {
-  const { ready, bootstrapError } = useFamilySession();
+  const { admin, family, ready, bootstrapError } = useFamilySession();
   const router = useRouter();
   const styles = useStyles();
   const { colors, gradients } = useTheme();
@@ -25,8 +24,8 @@ export default function SplashScreen() {
 
   useEffect(() => {
     if (!ready || !minimumElapsed || bootstrapError) return;
-    router.replace('/welcome');
-  }, [bootstrapError, minimumElapsed, ready, router]);
+    router.replace(admin ? (family ? '/home' : '/create-family') : family ? '/sign-in' : '/create-family');
+  }, [admin, bootstrapError, family, minimumElapsed, ready, router]);
 
   return (
     <LinearGradient colors={gradients.hero} end={{ x: 0.7, y: 1 }} start={{ x: 0.1, y: 0 }} style={styles.root}>
@@ -39,10 +38,7 @@ export default function SplashScreen() {
 
         <View style={styles.footer}>
           {bootstrapError ? (
-            <View style={styles.stack}>
-              <NoticeCard message={bootstrapError} title="Local store unavailable" tone="danger" />
-              <Button label="Continue" onPress={() => router.replace('/welcome')} variant="secondary" />
-            </View>
+            <NoticeCard message={bootstrapError} title="Local store unavailable" tone="danger" />
           ) : (
             <View style={styles.loading}>
               <ActivityIndicator color={colors.accent} size="small" />
@@ -62,7 +58,6 @@ const useStyles = makeStyles((t) => ({
   word: { fontSize: 40, fontWeight: '800', letterSpacing: -1.8, color: t.colors.white },
   tagline: { ...typography.caption, color: t.colors.onDark, textAlign: 'center' },
   footer: { paddingBottom: spacing.xl },
-  stack: { gap: spacing.md },
   loading: { alignItems: 'center', gap: spacing.sm },
   loadingText: { ...typography.micro, color: t.colors.onDarkMuted },
 }));

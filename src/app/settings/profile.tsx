@@ -28,7 +28,7 @@ export default function AdministratorProfileScreen() {
     setSignOutVisible(false);
     signOutAdministrator();
     toast.show('Signed out of the administrator account', 'default');
-    router.replace('/welcome');
+    router.replace('/sign-in');
   };
 
   return (

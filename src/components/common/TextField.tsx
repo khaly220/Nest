@@ -18,6 +18,7 @@ type TextFieldProps = {
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoCorrect?: TextInputProps['autoCorrect'];
   autoFocus?: boolean;
   maxLength?: number;
   editable?: boolean;
@@ -39,6 +40,7 @@ export function TextField({
   multiline = false,
   keyboardType,
   autoCapitalize = 'sentences',
+  autoCorrect = false,
   autoFocus = false,
   maxLength,
   editable = true,
@@ -69,7 +71,7 @@ export function TextField({
         <TextInput
           accessibilityLabel={accessibilityLabel ?? label ?? placeholder}
           autoCapitalize={autoCapitalize}
-          autoCorrect={false}
+          autoCorrect={autoCorrect}
           autoFocus={autoFocus}
           editable={editable}
           keyboardType={keyboardType}

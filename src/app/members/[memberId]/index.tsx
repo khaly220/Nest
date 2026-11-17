@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 import { SettingsGroup, SettingsRow } from '@/components/cards/SettingsRow';
 import { StatRow, StatTile } from '@/components/cards/StatTile';
@@ -17,7 +18,7 @@ import { OptionCard } from '@/components/forms/ChoiceRow';
 import { PinDots, PinKeypad } from '@/components/forms/PinKeypad';
 import { AppHeader } from '@/components/navigation/AppHeader';
 import { AvatarPicker } from '@/components/profiles/ProfileAvatar';
-import { resetMemberPin } from '@/data/familyStore';
+import { authorizeMemberPinResetWithDeviceCredential, resetMemberPin } from '@/data/familyStore';
 import { ageGroupDescription, ageGroupLabel } from '@/data/mock/apps';
 import { countAccess } from '@/data/services/accessService';
 import { useFamilySession, useMemberById } from '@/hooks/useFamilySession';
@@ -56,6 +57,7 @@ export default function MemberDetailScreen() {
   const [pinVisible, setPinVisible] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [pinResetBusy, setPinResetBusy] = useState(false);
 
   const [removeVisible, setRemoveVisible] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -126,18 +128,65 @@ export default function MemberDetailScreen() {
     toast.show(result.error ?? 'The profile could not be removed.', 'danger');
   }
 
-  const submitPin = () => {
+  const submitPin = async () => {
     if (!admin || !family || !member) return;
     if (!isPinComplete(newPin)) {
       setPinError('A sign-in PIN needs 6 to 8 digits.');
       return;
     }
-    runProtected(async () => {
-      await resetMemberPin(admin.id, family.id, member.id, newPin);
-    }, 'Sign-in PIN updated');
-    setPinVisible(false);
-    setNewPin('');
+    if (Platform.OS === 'web') {
+      runProtected(async () => {
+        await resetMemberPin(admin.id, family.id, member.id, newPin);
+      }, 'Member PIN updated');
+      setPinVisible(false);
+      setNewPin('');
+      return;
+    }
+
+    setPinResetBusy(true);
     setPinError('');
+    try {
+      const authentication = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirm it is you',
+        promptDescription: `Use this device's screen lock to reset ${member.fullName}'s PIN.`,
+        biometricsSecurityLevel: 'strong',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
+      });
+      if (!authentication.success) {
+        const message =
+          authentication.error === 'not_enrolled' || authentication.error === 'passcode_not_set'
+            ? 'Set up a screen lock on this device before resetting a member PIN.'
+            : authentication.error === 'lockout'
+              ? 'Device authentication is temporarily locked. Unlock the device and try again.'
+              : 'Owner verification was canceled or failed. No PIN was changed.';
+        setPinError(message);
+        return;
+      }
+
+      authorizeMemberPinResetWithDeviceCredential(admin.id, family.id, member.id);
+      await resetMemberPin(admin.id, family.id, member.id, newPin);
+      setPinVisible(false);
+      setNewPin('');
+      toast.show('Member PIN updated', 'success');
+    } catch (cause) {
+      const errorCode = cause instanceof Error ? cause.message : 'UNKNOWN_ERROR';
+      console.error('[MemberProfile] Member PIN reset failed', {
+        errorName: cause instanceof Error ? cause.name : 'UnknownError',
+        errorMessage: errorCode,
+      });
+      setPinError(
+        errorCode === 'PIN_TAKEN'
+          ? 'That PIN is already assigned to another member. Choose a different PIN.'
+          : errorCode === 'MEMBER_NOT_FOUND'
+            ? 'This member profile is no longer available.'
+            : errorCode === 'ADMIN_AUTH_REQUIRED'
+              ? 'Owner verification expired. Confirm with the device screen lock again.'
+              : 'The member PIN could not be reset. Please try again.',
+      );
+    } finally {
+      setPinResetBusy(false);
+    }
   };
 
   return (
@@ -218,7 +267,7 @@ export default function MemberDetailScreen() {
       <Button icon="person-remove-outline" label="Remove this profile" onPress={() => setRemoveVisible(true)} variant="danger" />
 
       <NoticeCard
-        message="Changing a profile or its PIN happens inside the ten-minute administrator window. If that window has closed, Nest asks for your password before saving."
+        message="Resetting a member PIN requires the device screen lock (pattern, PIN, password or biometrics). Other protected changes still require the administrator password when the ten-minute window closes."
         title="Protected changes"
       />
 
@@ -268,12 +317,13 @@ export default function MemberDetailScreen() {
       <ModalSheet
         footer={
           <>
-            <Button label="Save new PIN" onPress={submitPin} />
-            <Button label="Cancel" onPress={() => setPinVisible(false)} variant="ghost" />
+            <Button label="Save new PIN" loading={pinResetBusy} onPress={submitPin} />
+            <Button disabled={pinResetBusy} label="Cancel" onPress={() => setPinVisible(false)} variant="ghost" />
           </>
         }
+        dismissable={!pinResetBusy}
         onClose={() => setPinVisible(false)}
-        subtitle="Choose 6 to 8 digits this family member will remember."
+        subtitle="Choose 6 to 8 digits. Confirm with this device's screen lock."
         title="Reset sign-in PIN"
         visible={pinVisible}
       >
@@ -282,6 +332,7 @@ export default function MemberDetailScreen() {
         </View>
         <View style={styles.keypadWrap}>
           <PinKeypad
+            disabled={pinResetBusy}
             onDelete={() => setNewPin(newPin.slice(0, -1))}
             onDigit={(digit) => {
               setPinError('');

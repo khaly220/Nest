@@ -37,26 +37,20 @@ type PinKeypadProps = {
   onDigit: (digit: string) => void;
   onDelete: () => void;
   onBackspaceLongPress?: () => void;
-  onBiometric?: () => void;
-  biometricLabel?: string;
   disabled?: boolean;
 };
 
 const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 /** Custom numeric keypad used by member verification and PIN setup flows. */
-export function PinKeypad({ onDigit, onDelete, onBiometric, biometricLabel = 'Use face', disabled = false }: PinKeypadProps) {
+export function PinKeypad({ onDigit, onDelete, disabled = false }: PinKeypadProps) {
   const styles = useStyles();
   return (
     <View style={[styles.keypad, disabled && styles.disabled]}>
       {keys.map((key) => (
         <Key key={key} label={key} onPress={() => onDigit(key)} />
       ))}
-      {onBiometric ? (
-        <Key accessibilityLabel={biometricLabel} icon="scan-outline" onPress={onBiometric} subtle />
-      ) : (
-        <View style={styles.key} />
-      )}
+      <View style={styles.key} />
       <Key label="0" onPress={() => onDigit('0')} />
       <Key accessibilityLabel="Delete last digit" icon="backspace-outline" onPress={onDelete} subtle />
     </View>

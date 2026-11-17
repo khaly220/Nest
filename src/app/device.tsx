@@ -28,7 +28,7 @@ const protectionLabel: Record<DeviceState['protection'], string> = {
 
 /** Screen 13 — device management. Reports honestly what is and is not enforced. */
 export default function DeviceScreen() {
-  const { activeMember, members, family } = useFamilySession();
+  const { activeMember, members, family, memberRestrictionWarning } = useFamilySession();
   const router = useRouter();
   const toast = useToast();
   const styles = useStyles();
@@ -98,9 +98,9 @@ export default function DeviceScreen() {
           {device.model} · {device.platform}
         </Text>
         <View style={styles.statusRow}>
-          <StatusDot tone={device.connection === 'paired' ? 'success' : 'warning'} />
+          <StatusDot tone={device.connection === 'local' ? 'success' : 'warning'} />
           <Text style={[heroText.caption, styles.statusText]}>
-            {device.connection === 'paired' ? 'Paired' : 'Not paired'} · checked {formatRelative(device.lastCheckedAt)}
+            {device.connection === 'local' ? 'Local device' : 'Not paired'} · checked {formatRelative(device.lastCheckedAt)}
           </Text>
         </View>
       </HeroPanel>
@@ -144,7 +144,7 @@ export default function DeviceScreen() {
         <SettingsRow icon="phone-portrait-outline" title="Device name" value={device.name} />
         <SettingsRow icon="hardware-chip-outline" title="Model" value={device.model} />
         <SettingsRow icon="logo-android" title="Platform" value={device.platform} />
-        <SettingsRow icon="link-outline" title="Connection" value={device.connection === 'paired' ? 'Nest is on this device' : 'Not paired'} />
+        <SettingsRow icon="link-outline" title="Connection" value={device.connection === 'local' ? 'Nest is on this device' : 'Not paired'} />
         <SettingsRow icon="time-outline" title="Last checked" value={formatRelative(device.lastCheckedAt)} />
         <SettingsRow
           icon="people-outline"
@@ -170,6 +170,9 @@ export default function DeviceScreen() {
         }
         tone={Platform.OS === 'android' && deviceOwner ? 'success' : 'warning'}
       />
+      {memberRestrictionWarning ? (
+        <NoticeCard message={memberRestrictionWarning} title="App access needs attention" tone="warning" />
+      ) : null}
       <NoticeCard icon="person-circle-outline" message={device.protectionNote} title="Protection for the active profile" />
 
       <NoticeCard

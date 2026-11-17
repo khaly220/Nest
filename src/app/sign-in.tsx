@@ -1,18 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import {
+  Text,
+  View,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Pressable,
+  Modal,
+  ScrollView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Button } from '@/components/common/Button';
-import { Card } from '@/components/common/Card';
-import { InlineMessage, NoticeCard } from '@/components/common/InlineMessage';
+import { InlineMessage } from '@/components/common/InlineMessage';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
-import { PasswordField, TextField } from '@/components/common/TextField';
-import { AppHeader } from '@/components/navigation/AppHeader';
+import {
+  PasswordField,
+  TextField,
+} from '@/components/common/TextField';
 import { NestMark } from '@/components/common/NestMark';
 import { useFamilySession } from '@/hooks/useFamilySession';
 import { makeStyles, spacing, typography } from '@/theme';
 
-/** Administrator sign-in for a family that already exists on this device. */
 export default function SignInScreen() {
   const { admin, family, signInAdministrator } = useFamilySession();
   const router = useRouter();
@@ -23,103 +31,421 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [aboutVisible, setAboutVisible] = useState(false);
 
   const submit = async () => {
+    if (busy) return;
+
     if (!username.trim() || !password) {
-      setError('Enter your username and password.');
+      setError('Please enter your username and password.');
       return;
     }
+
+    Keyboard.dismiss();
     setBusy(true);
     setError('');
-    const result = await signInAdministrator(username, password);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error ?? 'Sign-in could not be completed.');
-      return;
+
+    try {
+      const result = await signInAdministrator(
+        username.trim(),
+        password
+      );
+
+      if (!result.ok) {
+        setError(
+          result.error ?? 'Unable to sign in. Please try again.'
+        );
+        return;
+      }
+
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    setSubmitted(true);
   };
 
   useEffect(() => {
     if (!submitted || !admin) return;
+
     router.replace(family ? '/home' : '/create-family');
   }, [admin, family, router, submitted]);
 
   return (
-    <ScreenContainer
-      background="mint"
-      footer={
-        <View style={styles.footer}>
-          <Button label="Sign in" loading={busy} onPress={submit} />
-          <Button disabled={busy} label="Create a new family instead" onPress={() => router.replace('/create-family')} variant="ghost" />
-        </View>
-      }
-      keyboardAware
-      scroll
-    >
-      <View style={styles.brandRow}>
-        <NestMark size={40} />
-        <Text style={styles.word}>nest</Text>
-      </View>
+    <>
+      <ScreenContainer
+        background="mint"
+        keyboardAware
+        scroll
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.container}>
 
-      <AppHeader
-        eyebrow="Administrator"
-        onBack={() => router.back()}
-        subtitle="Sign in to review and change boundaries for this family."
-        title="Welcome back"
-      />
+            {/* Top Bar / Header */}
+            <View style={styles.topBar}>
+              <View style={styles.brandRow}>
+                <NestMark size={40} />
+                <Text style={styles.brandName}>nest</Text>
+              </View>
 
-      <Card style={styles.form}>
-        <TextField
-          autoCapitalize="none"
-          autoFocus
-          icon="person-outline"
-          label="Username"
-          onChangeText={setUsername}
-          placeholder="Your administrator username"
-          value={username}
-        />
-        <PasswordField
-          label="Password"
-          onChangeText={setPassword}
-          onSubmitEditing={submit}
-          placeholder="Your password"
-          returnKeyType="done"
-          value={password}
-        />
-        <InlineMessage message={error} tone="danger" />
-      </Card>
+              <Pressable
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setAboutVisible(true);
+                }}
+                style={styles.helpButton}
+                accessibilityRole="button"
+                accessibilityLabel="About Nest"
+              >
+                <Text style={styles.helpIcon}>?</Text>
+              </Pressable>
+            </View>
 
-      <NoticeCard
-        message="Nest locks an account for five minutes after five incorrect attempts. This protects the family profiles stored on a shared device."
-        title="Five attempts, then a short pause"
-        tone="warning"
-      />
+            {/* Welcome Title */}
+            <View style={styles.heading}>
+              <Text style={styles.headingTitle}>Welcome Back</Text>
+              <Text style={styles.subtitle}>
+                Sign in to manage your family.
+              </Text>
+            </View>
 
-      <Card onPress={() => router.push('/member')} accessibilityLabel="Open family member sign-in">
-        <View style={styles.memberRow}>
-          <View style={styles.memberCopy}>
-            <Text style={styles.memberTitle}>Not the administrator?</Text>
-            <Text style={styles.memberBody}>Family members sign in with their own profile and PIN.</Text>
+            {/* Main Card Container (Shadow removed & fills screen width) */}
+            <View style={styles.card}>
+              {/* Segmented Tab Selector */}
+              <View style={styles.tabContainer}>
+                <View style={[styles.tab, styles.activeTab]}>
+                  <Text style={[styles.tabText, styles.activeTabText]}>Sign in</Text>
+                </View>
+                <Pressable
+                  style={styles.tab}
+                  onPress={() => router.push('/create-family')}
+                >
+                  <Text style={styles.tabText}>Sign up</Text>
+                </Pressable>
+              </View>
+
+              {/* Form Fields */}
+              <View style={styles.form}>
+                <TextField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  icon="person-outline"
+                  label="Username"
+                  onChangeText={(value) => {
+                    setUsername(value);
+                    setError('');
+                  }}
+                  placeholder="Enter your username"
+                  value={username}
+                />
+
+                <PasswordField
+                  label="Password"
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    setError('');
+                  }}
+                  onSubmitEditing={submit}
+                  placeholder="Enter your Password"
+                  returnKeyType="done"
+                  value={password}
+                />
+
+                {error ? (
+                  <InlineMessage
+                    message={error}
+                    tone="danger"
+                  />
+                ) : null}
+
+                {/* Login Button */}
+                <Button
+                  label="Sign in"
+                  loading={busy}
+                  onPress={submit}
+                />
+
+              </View>
+            </View>
+
           </View>
-          <Text style={styles.memberAction}>Member sign-in</Text>
-        </View>
-      </Card>
+        </TouchableWithoutFeedback>
+      </ScreenContainer>
 
-      <Text style={styles.note}>Accounts are checked against the encrypted store on this device. Nothing is sent anywhere.</Text>
-    </ScreenContainer>
+      {/* About Nest modal */}
+      <Modal
+        visible={aboutVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setAboutVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setAboutVisible(false)}
+          />
+
+          <View style={styles.aboutCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalBrand}>
+                <NestMark size={32} />
+                <Text style={styles.modalBrandName}>About Nest</Text>
+              </View>
+
+              <Pressable
+                onPress={() => setAboutVisible(false)}
+                style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close About Nest"
+              >
+                <Text style={styles.closeIcon}>×</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.aboutScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.aboutIntro}>
+                A safer digital home.
+              </Text>
+
+              <Text style={styles.aboutDescription}>
+                Nest helps parents set app boundaries for family members on supported Android devices.
+              </Text>
+
+              <View style={styles.aboutPrivacy}>
+                <Text style={styles.aboutPrivacyTitle}>
+                  Local data
+                </Text>
+                <Text style={styles.aboutPrivacyText}>
+                  Family data stays on this device. Some restrictions require Android Device Owner setup.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <Button
+              label="Got it"
+              onPress={() => setAboutVisible(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 const useStyles = makeStyles((t) => ({
-  footer: { gap: spacing.xs },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xs },
-  word: { fontSize: 22, fontWeight: '800', letterSpacing: -1, color: t.colors.brandInk },
-  form: { gap: spacing.md },
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  memberCopy: { flex: 1, gap: 2 },
-  memberTitle: { ...typography.bodyStrong, color: t.colors.ink },
-  memberBody: { ...typography.micro, color: t.colors.inkSecondary, lineHeight: 17 },
-  memberAction: { ...typography.caption, color: t.colors.success, fontWeight: '700' },
-  note: { ...typography.micro, color: t.colors.inkSecondary, lineHeight: 18, textAlign: 'center' },
+  container: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexGrow: 1,
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: 0,
+  },
+
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  brandName: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -1,
+    color: t.colors.brandInk,
+  },
+
+  helpButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 70, 85, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  helpIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: t.colors.brandInk,
+  },
+
+  heading: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+
+  headingTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    color: t.colors.brandInk,
+    textAlign: 'center',
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: t.colors.inkSecondary,
+    textAlign: 'center',
+  },
+
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    padding: spacing.lg,
+    width: '100%',
+    alignSelf: 'stretch',
+    flex: 1,
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 30,
+    padding: 4,
+  },
+
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 26,
+  },
+
+  activeTab: { backgroundColor: '#FFFFFF' },
+
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+
+  activeTabText: {
+    color: '#111827',
+  },
+
+  form: {
+    width: '100%',
+    gap: spacing.md,
+  },
+
+  // About modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+  },
+
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+
+  aboutCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '82%',
+    backgroundColor: t.colors.surface,
+    borderRadius: 24,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  modalBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  modalBrandName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: t.colors.brandInk,
+  },
+
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(29, 70, 85, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  closeIcon: {
+    fontSize: 22,
+    lineHeight: 25,
+    color: t.colors.brandInk,
+  },
+
+  aboutScroll: {
+    flexShrink: 1,
+  },
+
+  aboutIntro: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: t.colors.brandInk,
+    marginBottom: spacing.sm,
+  },
+
+  aboutDescription: {
+    ...typography.body,
+    color: t.colors.inkSecondary,
+    lineHeight: 22,
+    marginBottom: spacing.md,
+  },
+
+  aboutPrivacy: {
+    padding: spacing.md,
+    borderRadius: 15,
+    backgroundColor: 'rgba(29, 70, 85, 0.08)',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+
+  aboutPrivacyTitle: {
+    ...typography.bodyStrong,
+    color: t.colors.brandInk,
+  },
+
+  aboutPrivacyText: {
+    ...typography.micro,
+    color: t.colors.inkSecondary,
+    lineHeight: 18,
+  },
 }));

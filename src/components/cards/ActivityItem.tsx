@@ -40,7 +40,6 @@ export function ActivityItem({ event, timestamp, last = false }: ActivityItemPro
           <Text style={styles.title} numberOfLines={2}>
             {event.title}
           </Text>
-          {event.sample ? <Text style={styles.sampleTag}>Preview</Text> : null}
         </View>
         <Text style={styles.description}>{event.description}</Text>
         <View style={styles.metaRow}>
@@ -95,16 +94,6 @@ const useStyles = makeStyles((t) => ({
   bodySpaced: { marginBottom: spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
   title: { ...typography.bodyStrong, color: t.colors.ink, flex: 1 },
-  sampleTag: {
-    ...typography.micro,
-    fontSize: 10,
-    color: t.colors.inkSecondary,
-    backgroundColor: t.colors.surfaceMuted,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
   description: { ...typography.micro, color: t.colors.inkSecondary, lineHeight: 17, marginTop: 2 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   meta: { ...typography.micro, fontSize: 10, color: t.colors.inkMuted, fontWeight: '600' },

@@ -1,8 +1,6 @@
 import { Platform } from 'react-native';
 import type { DevicePlatform, DeviceState } from '@/types';
 
-const startedAt = new Date();
-
 function platformName(): DevicePlatform {
   if (Platform.OS === 'android') return 'Android';
   if (Platform.OS === 'ios') return 'iOS';
@@ -30,9 +28,9 @@ export function loadDeviceState(activeProfileName: string | null): DeviceState {
     name: 'This device',
     platform,
     model: deviceModel(),
-    connection: 'paired',
+    connection: 'local',
     connectionNote: 'Nest is running on this device, so the local store is reachable right now.',
-    lastCheckedAt: startedAt.toISOString(),
+    lastCheckedAt: new Date().toISOString(),
     capability: 'unavailable',
     capabilityNote:
       'Android app restrictions require Nest to be provisioned as the Device Owner on a fully managed device. Check this screen to confirm whether enforcement is active.',

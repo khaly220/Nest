@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
-import { InlineMessage, NoticeCard } from '@/components/common/InlineMessage';
+import { InlineMessage } from '@/components/common/InlineMessage';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { PasswordField, TextField } from '@/components/common/TextField';
 import { StepProgress } from '@/components/forms/StepProgress';
 import { AppHeader } from '@/components/navigation/AppHeader';
 import { useFamilySession } from '@/hooks/useFamilySession';
 import { useToast } from '@/hooks/useToast';
-import { makeStyles, spacing, typography } from '@/theme';
+import { makeStyles, spacing } from '@/theme';
 import { passwordIsStrong, usernameIsValid } from '@/utils/validation';
 
 const stepLabels = ['Your account', 'Family details'];
@@ -33,6 +33,7 @@ export default function CreateFamilyScreen() {
   const [busy, setBusy] = useState(false);
 
   const submitAccount = async () => {
+    if (busy) return;
     if (!usernameIsValid(username)) {
       setError('Use 3–32 characters: letters, numbers, dot, underscore or hyphen.');
       return;
@@ -47,30 +48,41 @@ export default function CreateFamilyScreen() {
     }
     setBusy(true);
     setError('');
-    const result = await registerAdministrator(username, password);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error ?? 'The account could not be created.');
-      return;
+    try {
+      const result = await registerAdministrator(username, password);
+      if (!result.ok) {
+        setError(result.error ?? 'The account could not be created.');
+        return;
+      }
+      toast.show('Administrator account created', 'success');
+      setStep(2);
+    } catch {
+      setError('Nest could not save the administrator account on this device. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    toast.show('Administrator account created', 'success');
-    setStep(2);
   };
 
   const submitFamily = async () => {
+    if (busy) return;
     if (familyName.trim().length < 2) {
       setError('Give the family a name with at least two characters.');
       return;
     }
     setBusy(true);
     setError('');
-    const result = await createFamily(familyName, description);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error ?? 'The family could not be saved.');
-      return;
+    try {
+      const result = await createFamily(familyName, description);
+      if (!result.ok) {
+        setError(result.error ?? 'The family could not be saved.');
+        return;
+      }
+      router.replace('/success');
+    } catch {
+      setError('Nest could not save the family to this device. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    router.replace('/success');
   };
 
   return (
@@ -94,12 +106,12 @@ export default function CreateFamilyScreen() {
       scroll
     >
       <AppHeader
-        eyebrow="Step 4 of 6"
+        eyebrow="Family setup"
         onBack={() => (step === 1 ? router.back() : setStep(1))}
         subtitle={
           step === 1
-            ? 'The administrator account is the only account that can change boundaries.'
-            : 'This names the space that holds every profile on this device.'
+            ? 'Create the administrator account.'
+            : 'Choose a name for your family.'
         }
         title="Create your family"
       />
@@ -156,25 +168,14 @@ export default function CreateFamilyScreen() {
             placeholder="A short note about this family and its device."
             value={description}
           />
-          <NoticeCard
-            message="The family space, its member profiles and every boundary are stored in an encrypted database on this device. No account, no cloud and no sync is involved."
-            title="Stored on this device only"
-          />
           <InlineMessage message={error} tone="danger" />
         </Card>
       )}
-
-      <Text style={styles.note}>
-        {step === 1
-          ? 'You can add your family members straight after this step.'
-          : 'You will be able to add the first member profile on the next screen.'}
-      </Text>
     </ScreenContainer>
   );
 }
 
-const useStyles = makeStyles((t) => ({
+const useStyles = makeStyles(() => ({
   footer: { gap: spacing.xs },
   form: { gap: spacing.md },
-  note: { ...typography.micro, color: t.colors.inkSecondary, lineHeight: 18, textAlign: 'center' },
 }));

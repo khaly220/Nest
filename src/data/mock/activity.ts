@@ -1,43 +1,4 @@
-import type { ActivityEvent, ActivityTone, IconName } from '@/types';
-
-/**
- * Preview history entries.
- * Real events are read from the encrypted local audit table; these entries only
- * fill out the timeline while the audit backend phase is pending, and are always
- * labelled as preview data in the interface.
- */
-export const sampleActivity: ActivityEvent[] = [
-  {
-    id: 'sample-1',
-    title: 'Weekly review reminder',
-    description: 'Nest suggests reviewing application access before the weekend.',
-    memberName: 'All members',
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    icon: 'sparkles-outline',
-    tone: 'info',
-    sample: true,
-  },
-  {
-    id: 'sample-2',
-    title: 'Boundary suggestion for TikTok',
-    description: 'Typical families block short-form video for child profiles.',
-    memberName: 'Lerato',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
-    icon: 'information-circle-outline',
-    tone: 'neutral',
-    sample: true,
-  },
-  {
-    id: 'sample-3',
-    title: 'Homework apps left open',
-    description: 'Education apps stayed available during the evening routine.',
-    memberName: 'Thabo',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
-    icon: 'school-outline',
-    tone: 'success',
-    sample: true,
-  },
-];
+import type { ActivityTone, IconName } from '@/types';
 
 /** Human wording for the event types written by the local store. */
 export function describeEventType(eventType: string): { title: string; description: string; icon: IconName; tone: ActivityTone } {
@@ -56,6 +17,14 @@ export function describeEventType(eventType: string): { title: string; descripti
       return { title: 'Member PIN reset', description: 'Sign-in credentials were reset for this member.', icon: 'key-outline', tone: 'warning' };
     case 'member_removed':
       return { title: 'Member removed', description: 'A profile and its local PIN were removed.', icon: 'person-remove-outline', tone: 'danger' };
+    case 'administrator_sign_in_succeeded':
+      return { title: 'Administrator signed in', description: 'The administrator authenticated on this device.', icon: 'log-in-outline', tone: 'success' };
+    case 'administrator_sign_in_failed':
+      return { title: 'Administrator sign-in failed', description: 'An incorrect administrator password was entered.', icon: 'lock-closed-outline', tone: 'warning' };
+    case 'member_sign_in_succeeded':
+      return { title: 'Member signed in', description: 'A family member authenticated on this device.', icon: 'log-in-outline', tone: 'success' };
+    case 'member_sign_in_failed':
+      return { title: 'Member sign-in failed', description: 'An incorrect member PIN was entered.', icon: 'lock-closed-outline', tone: 'warning' };
     default:
       return { title: 'Family activity', description: 'A change was recorded for this family.', icon: 'pulse-outline', tone: 'neutral' };
   }

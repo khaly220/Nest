@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import {
   addMember,
@@ -39,6 +39,10 @@ type SessionValue = {
 
   /** Member currently signed in on this device, if any. */
   activeMember: FamilyMember | null;
+  /** Member session awaiting PIN verification after Nest left the foreground. */
+  lockedMemberId: string | null;
+  /** Warning when Android could not restore apps after administrator sign-in. */
+  memberRestrictionWarning: string;
   /** True when the administrator session expired and a password is needed again. */
   sessionExpired: boolean;
 
@@ -104,6 +108,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [activeMember, setActiveMember] = useState<FamilyMember | null>(null);
+  const [lockedMemberId, setLockedMemberId] = useState<string | null>(null);
+  const [memberRestrictionWarning, setMemberRestrictionWarning] = useState('');
   const [sessionExpired, setSessionExpired] = useState(false);
   const [pendingReauth, setPendingReauth] = useState<ReauthState>(null);
   const [reauthRun, setReauthRun] = useState<(() => Promise<void>) | null>(null);
@@ -111,8 +117,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [reauthError, setReauthError] = useState('');
 
   useEffect(() => {
+    if (!activeMember) return;
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') return;
+      setLockedMemberId(activeMember.id);
+      setActiveMember((current) => (current?.id === activeMember.id ? null : current));
+    });
+    return () => subscription.remove();
+  }, [activeMember]);
+
+  useEffect(() => {
     let mounted = true;
     prepareLocalStore()
+      .then(async () => {
+        const storedFamily = await loadExistingFamily();
+        if (!mounted || !storedFamily) return;
+        setFamily(storedFamily);
+        setMembers(await listMembers(storedFamily.id));
+      })
       .catch(() =>
         mounted &&
         setBootstrapError(
@@ -148,18 +171,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const enterAdministrator = useCallback(
     async (administrator: Administrator) => {
-      await clearMemberRestrictions();
+      const savedFamily = await findFamily(administrator.id);
+      const savedMembers = savedFamily ? await listMembers(savedFamily.id) : [];
       setAdmin(administrator);
       setSessionExpired(false);
-      const savedFamily = await findFamily(administrator.id);
-      if (savedFamily) {
-        await loadFamilyIntoSession(savedFamily);
-      } else {
-        setFamily(null);
-        setMembers([]);
+      setFamily(savedFamily);
+      setMembers(savedMembers);
+      setLockedMemberId(null);
+      setActiveMember(null);
+      try {
+        await clearMemberRestrictions();
+        setMemberRestrictionWarning('');
+      } catch (cause) {
+        const detail = cause instanceof Error ? cause.message : 'Unknown error';
+        console.error('[NestSession] Could not restore apps for administrator access', {
+          errorName: cause instanceof Error ? cause.name : 'UnknownError',
+          errorMessage: detail,
+        });
+        setMemberRestrictionWarning(
+          `Administrator sign-in succeeded, but Nest could not restore app access from the previous member session: ${detail}`,
+        );
       }
     },
-    [loadFamilyIntoSession],
+    [],
   );
 
   const register = useCallback(
@@ -177,6 +211,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const signInAdministrator = useCallback(
     async (username: string, password: string): Promise<ActionResult> => {
+      let stage: 'credential_check' | 'family_load' = 'credential_check';
       try {
         const result = await authenticateAdministrator(username.trim(), password);
         if (result.result !== 'ok' || !result.administrator) {
@@ -185,10 +220,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             error: result.result === 'locked' ? 'Too many attempts. Try again in five minutes.' : 'Username or password is incorrect.',
           };
         }
+        stage = 'family_load';
         await enterAdministrator(result.administrator);
         return { ok: true };
       } catch (cause) {
-        return { ok: false, error: friendlyError(cause, 'Sign-in could not be completed.') };
+        console.error('[NestSession] Administrator sign-in failed', {
+          stage,
+          errorName: cause instanceof Error ? cause.name : 'UnknownError',
+          errorMessage: cause instanceof Error ? cause.message : String(cause),
+        });
+        return {
+          ok: false,
+          error:
+            stage === 'credential_check'
+              ? 'Nest could not verify your account in the local database. Restart the app and try again.'
+              : 'Your password was accepted, but Nest could not load the family data on this device. Please try again.',
+        };
       }
     },
     [enterAdministrator],
@@ -304,6 +351,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     lockAdministrator();
     setAdmin(null);
     setActiveMember(null);
+    setLockedMemberId(null);
+    setMemberRestrictionWarning('');
     setSessionExpired(false);
     setPendingReauth(null);
     setReauthRun(null);
@@ -328,6 +377,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const pool = members.length ? members : family ? await listMembers(family.id) : [];
         const found = pool.find((item) => item.id === memberId) ?? null;
         if (!found) return { ok: false, error: 'That member profile is no longer available.' };
+        if (AppState.currentState !== 'active') {
+          setLockedMemberId(memberId);
+          return { ok: false, error: 'Nest was interrupted during verification. Enter the PIN again when you return.' };
+        }
         if (Platform.OS === 'android') {
           try {
             await applyMemberRestrictions(found.id, found.ageGroup);
@@ -345,9 +398,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             };
           }
         }
+        if (AppState.currentState !== 'active') {
+          setLockedMemberId(memberId);
+          return { ok: false, error: 'Nest was interrupted during verification. Enter the PIN again when you return.' };
+        }
         lockAdministrator();
         setAdmin(null);
         setActiveMember(found);
+        setLockedMemberId(null);
         if (found && !members.length) setMembers(pool);
         return { ok: true };
       } catch (cause) {
@@ -360,6 +418,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signOutMember = useCallback(async () => {
     await clearMemberRestrictions();
     setActiveMember(null);
+    setLockedMemberId(null);
   }, []);
 
   const requestReauthentication = useCallback((reason: string, run: () => Promise<void>) => {
@@ -419,6 +478,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       members,
       memberNames,
       activeMember,
+      lockedMemberId,
+      memberRestrictionWarning,
       sessionExpired,
       reauth: { visible: Boolean(pendingReauth), reason: pendingReauth?.reason ?? '', busy: reauthBusy, error: reauthError },
       registerAdministrator: register,
@@ -440,7 +501,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       clearSessionExpired: () => setSessionExpired(false),
     }),
     [
-      ready, bootstrapError, admin, family, members, memberNames, activeMember, sessionExpired,
+      ready, bootstrapError, admin, family, members, memberNames, activeMember, lockedMemberId, memberRestrictionWarning, sessionExpired,
       pendingReauth, reauthBusy, reauthError, register, signInAdministrator, createFamily,
       saveFamilyDetails, refreshMembers, loadStoredFamily, addMemberProfile, updateMemberProfile,
       removeMemberProfile, changePassword, signOutAdministrator, signInMember, signOutMember,

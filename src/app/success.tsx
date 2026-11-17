@@ -24,10 +24,10 @@ export default function FamilyCreatedScreen() {
     return (
       <ScreenContainer padded>
         <EmptyState
-          actionLabel="Back to welcome"
+          actionLabel="Create a family"
           icon="home-outline"
           message="No family space was found on this device. Create one to continue."
-          onAction={() => router.replace('/welcome')}
+          onAction={() => router.replace('/create-family')}
           title="Nothing to show yet"
         />
       </ScreenContainer>

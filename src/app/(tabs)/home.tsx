@@ -13,39 +13,46 @@ import { HeroPanel, heroText } from '@/components/common/NestMark';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { StatRow, StatTile } from '@/components/cards/StatTile';
 import { useFamilySession } from '@/hooks/useFamilySession';
-import { countAccess, loadMemberAccess } from '@/data/services/accessService';
-import { loadRecordedActivity, previewActivity } from '@/data/services/activityService';
+import { loadMemberAccess } from '@/data/services/accessService';
+import { loadRecordedActivity } from '@/data/services/activityService';
 import { loadDeviceState } from '@/data/mock/device';
 import { makeStyles, radius, spacing, typography, useTheme } from '@/theme';
 import type { ActivityEvent, IconName } from '@/types';
 import { firstName, formatRelative, greeting } from '@/utils/format';
 
-type MemberSummary = Record<string, { allowed: number; total: number }>;
+type MemberSummary = Record<string, { installedApps: number; restrictedAppIds: string[]; savedRules: number }>;
 
 const quickActions: { icon: IconName; title: string; body: string; href: Href }[] = [
   { icon: 'person-add-outline', title: 'Add a member', body: 'Create a profile', href: '/members/new' },
-  { icon: 'shield-checkmark-outline', title: 'Review access', body: 'Adjust boundaries', href: '/access' },
-  { icon: 'phone-portrait-outline', title: 'This device', body: 'Status and limits', href: '/device' },
+  { icon: 'apps-outline', title: 'Discover apps', body: 'View installed apps', href: '/access' },
+  { icon: 'shield-checkmark-outline', title: 'Manage rules', body: 'Adjust restrictions', href: '/access' },
+  { icon: 'pulse-outline', title: 'View activity', body: 'See local history', href: '/activity' },
 ];
 
 /** Screen 7 — administrator dashboard. */
 export default function AdministratorHomeScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
-  const { admin, family, members, memberNames, activeMember } = useFamilySession();
+  const { admin, family, members, memberNames, activeMember, memberRestrictionWarning } = useFamilySession();
   const router = useRouter();
   const [summaries, setSummaries] = useState<MemberSummary>({});
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const next: MemberSummary = {};
     try {
       for (const member of members) {
-        const { apps } = await loadMemberAccess(member.id, member.ageGroup);
-        const counts = countAccess(apps);
-        next[member.id] = { allowed: counts.allowed, total: counts.total };
+        const { apps, stored } = await loadMemberAccess(member.id, member.ageGroup);
+        next[member.id] = {
+          installedApps: apps.length,
+          restrictedAppIds: apps
+            .filter((app) => stored[`app:${app.id}`] === false)
+            .map((app) => app.id),
+          savedRules: Object.keys(stored).length,
+        };
       }
       setSummaries(next);
       setAccessError(null);
@@ -54,10 +61,17 @@ export default function AdministratorHomeScreen() {
     }
     if (!family) {
       setActivity([]);
+      setActivityError(null);
       return;
     }
-    const recorded = await loadRecordedActivity(family.id, memberNames);
-    setActivity(recorded.length ? recorded.slice(0, 3) : previewActivity().slice(0, 2));
+    try {
+      const recorded = await loadRecordedActivity(family.id, memberNames);
+      setActivity(recorded.slice(0, 3));
+      setActivityError(null);
+    } catch (cause) {
+      setActivity([]);
+      setActivityError(cause instanceof Error ? cause.message : 'Unknown error');
+    }
   }, [family, memberNames, members]);
 
   useEffect(() => {
@@ -66,9 +80,10 @@ export default function AdministratorHomeScreen() {
 
   const totals = useMemo(() => {
     const values = Object.values(summaries);
-    const allowed = values.reduce((sum, item) => sum + item.allowed, 0);
-    const total = values.reduce((sum, item) => sum + item.total, 0);
-    return { allowed, blocked: total - allowed, total };
+    const restrictedApps = new Set(values.flatMap((item) => item.restrictedAppIds));
+    const installedApps = values.reduce((count, item) => Math.max(count, item.installedApps), 0);
+    const savedRules = values.reduce((count, item) => count + item.savedRules, 0);
+    return { restrictedApps: restrictedApps.size, installedApps, savedRules };
   }, [summaries]);
 
   const device = loadDeviceState(activeMember?.fullName ?? null);
@@ -99,7 +114,7 @@ export default function AdministratorHomeScreen() {
           {family
             ? members.length === 0
               ? 'No member profiles yet. Add the first one to start setting boundaries.'
-              : `${members.length} ${members.length === 1 ? 'profile' : 'profiles'} · ${totals.allowed} of ${totals.total} applications available`
+              : `${members.length} ${members.length === 1 ? 'profile' : 'profiles'} · ${totals.restrictedApps} app restrictions saved`
             : 'A family space holds every profile and boundary on this device.'}
         </Text>
         {!family ? (
@@ -116,16 +131,20 @@ export default function AdministratorHomeScreen() {
           tone="danger"
         />
       ) : null}
+      {memberRestrictionWarning ? (
+        <NoticeCard message={memberRestrictionWarning} title="App access needs attention" tone="warning" />
+      ) : null}
 
       {family ? (
         <StatRow>
           <StatTile icon="people-outline" label="Members" value={`${members.length}`} />
-          <StatTile icon="checkmark-circle-outline" label="Allowed" tone="forest" value={`${totals.allowed}`} />
-          <StatTile icon="ban-outline" label="Blocked" tone="warning" value={`${totals.blocked}`} />
+          <StatTile icon="ban-outline" label="Restricted apps" tone="warning" value={`${totals.restrictedApps}`} />
+          <StatTile icon="shield-checkmark-outline" label="Saved rules" tone="forest" value={`${totals.savedRules}`} />
         </StatRow>
       ) : null}
+      {family ? <Text style={styles.catalogCaption}>{totals.installedApps} launchable apps discovered on this device</Text> : null}
 
-      <SectionHeader subtitle="The three things you reach for most." title="Quick actions" />
+      <SectionHeader subtitle="Common family-management tasks." title="Quick actions" />
       <View style={styles.actions}>
         {quickActions.map((action) => (
           <Card
@@ -144,7 +163,9 @@ export default function AdministratorHomeScreen() {
       </View>
 
       <SectionHeader actionLabel="See all" onAction={() => router.push('/activity')} title="Recent activity" />
-      {activity.length ? (
+      {activityError ? (
+        <NoticeCard message={`Local activity could not be loaded: ${activityError}`} title="Activity unavailable" tone="danger" />
+      ) : activity.length ? (
         <Card style={styles.activityCard}>
           {activity.map((event, index) => (
             <ActivityItem event={event} key={event.id} last={index === activity.length - 1} timestamp={formatRelative(event.createdAt)} />
@@ -194,8 +215,9 @@ const useStyles = makeStyles((t) => ({
   title: { ...typography.title1, color: t.colors.ink },
   heroBody: { marginTop: spacing.xxs },
   heroAction: { marginTop: spacing.xs, fontWeight: '800' },
-  actions: { flexDirection: 'row', gap: spacing.xs },
-  actionCard: { flex: 1, gap: spacing.xxs, padding: spacing.sm },
+  catalogCaption: { ...typography.micro, color: t.colors.inkMuted, marginTop: spacing.xxs },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  actionCard: { flexBasis: '48%', flexGrow: 1, gap: spacing.xxs, padding: spacing.sm },
   actionIcon: {
     width: 38,
     height: 38,

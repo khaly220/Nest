@@ -55,8 +55,6 @@ export type ActivityEvent = {
   createdAt: string;
   icon: IconName;
   tone: ActivityTone;
-  /** Marks preview entries used until the audit backend phase lands. */
-  sample?: boolean;
 };
 
 export type DevicePlatform = 'Android' | 'iOS' | 'Web';
@@ -65,7 +63,7 @@ export type DeviceState = {
   name: string;
   platform: DevicePlatform;
   model: string;
-  connection: 'paired' | 'unpaired';
+  connection: 'local' | 'unpaired';
   connectionNote: string;
   lastCheckedAt: string;
   capability: 'available' | 'unavailable';
