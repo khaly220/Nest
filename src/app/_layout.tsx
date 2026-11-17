@@ -22,8 +22,7 @@ function RouteGuard() {
     if (!ready) return;
     const root = segments[0];
     if (lockedMemberId && !admin) {
-      const isLockedVerification =
-        root === 'member' && segments[1] === 'verify' && memberId === lockedMemberId;
+      const isLockedVerification = segments.join('/') === 'member/verify' && memberId === lockedMemberId;
       if (!isLockedVerification && root !== 'sign-in') {
         router.replace(`/member/verify?memberId=${encodeURIComponent(lockedMemberId)}`);
       }

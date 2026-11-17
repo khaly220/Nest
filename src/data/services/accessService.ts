@@ -131,7 +131,6 @@ export async function loadMemberAccess(
 export async function applyMemberRestrictions(memberId: string, ageGroup: AgeGroup): Promise<number> {
   if (!(await isDeviceOwner())) throw new Error('DEVICE_OWNER_REQUIRED');
 
-  await applyBlockedApps([]);
   const { apps } = await loadMemberAccess(memberId, ageGroup);
   const blockedPackages = apps
     .filter((app) => !app.allowed && !app.isSystemApp)
