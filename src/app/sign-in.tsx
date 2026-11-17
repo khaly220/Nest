@@ -19,22 +19,65 @@ import {
 } from '@/components/common/TextField';
 import { NestMark } from '@/components/common/NestMark';
 import { useFamilySession } from '@/hooks/useFamilySession';
+import { useToast } from '@/hooks/useToast';
 import { makeStyles, spacing, typography } from '@/theme';
+import { passwordIsStrong, usernameIsValid } from '@/utils/validation';
 
 export default function SignInScreen() {
-  const { admin, family, signInAdministrator } = useFamilySession();
+  const { admin, family, registerAdministrator, signInAdministrator } = useFamilySession();
   const router = useRouter();
+  const toast = useToast();
   const styles = useStyles();
 
+  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
 
+  const submitSignUp = async () => {
+    if (busy) return;
+    if (!usernameIsValid(username)) {
+      setError('Use 3–32 characters: letters, numbers, dot, underscore or hyphen.');
+      return;
+    }
+    if (!passwordIsStrong(password)) {
+      setError('Your password needs at least 8 characters.');
+      return;
+    }
+    if (password !== confirmation) {
+      setError('The two passwords do not match.');
+      return;
+    }
+
+    Keyboard.dismiss();
+    setBusy(true);
+    setError('');
+    try {
+      const result = await registerAdministrator(username.trim(), password);
+      if (!result.ok) {
+        setError(result.error ?? 'The account could not be created.');
+        return;
+      }
+      toast.show('Administrator account created', 'success');
+      setSubmitted(true);
+    } catch {
+      setError('Nest could not save the administrator account on this device. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async () => {
     if (busy) return;
+
+    if (mode === 'sign-up') {
+      await submitSignUp();
+      return;
+    }
 
     if (!username.trim() || !password) {
       setError('Please enter your username and password.');
@@ -104,9 +147,9 @@ export default function SignInScreen() {
 
             {/* Welcome Title */}
             <View style={styles.heading}>
-              <Text style={styles.headingTitle}>Welcome Back</Text>
+              <Text style={styles.headingTitle}>{mode === 'sign-in' ? 'Welcome Back' : 'Create your account'}</Text>
               <Text style={styles.subtitle}>
-                Sign in to manage your family.
+                {mode === 'sign-in' ? 'Sign in to manage your family.' : 'Create an administrator account to get started.'}
               </Text>
             </View>
 
@@ -114,14 +157,29 @@ export default function SignInScreen() {
             <View style={styles.card}>
               {/* Segmented Tab Selector */}
               <View style={styles.tabContainer}>
-                <View style={[styles.tab, styles.activeTab]}>
-                  <Text style={[styles.tabText, styles.activeTabText]}>Sign in</Text>
-                </View>
                 <Pressable
-                  style={styles.tab}
-                  onPress={() => router.push('/create-family')}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setMode('sign-in');
+                    setError('');
+                    setPassword('');
+                    setConfirmation('');
+                  }}
+                  style={[styles.tab, mode === 'sign-in' && styles.activeTab]}
                 >
-                  <Text style={styles.tabText}>Sign up</Text>
+                  <Text style={[styles.tabText, mode === 'sign-in' && styles.activeTabText]}>Sign in</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setMode('sign-up');
+                    setError('');
+                    setPassword('');
+                    setConfirmation('');
+                  }}
+                  style={[styles.tab, mode === 'sign-up' && styles.activeTab]}
+                >
+                  <Text style={[styles.tabText, mode === 'sign-up' && styles.activeTabText]}>Sign up</Text>
                 </Pressable>
               </View>
 
@@ -131,26 +189,43 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   icon="person-outline"
-                  label="Username"
+                  hint={mode === 'sign-up' ? '3–32 characters. Letters, numbers, dot, underscore or hyphen.' : undefined}
+                  label={mode === 'sign-up' ? 'Administrator username' : 'Username'}
+                  maxLength={mode === 'sign-up' ? 32 : undefined}
                   onChangeText={(value) => {
                     setUsername(value);
                     setError('');
                   }}
-                  placeholder="Enter your username"
+                  placeholder={mode === 'sign-up' ? 'Choose a username' : 'Enter your username'}
                   value={username}
                 />
 
                 <PasswordField
-                  label="Password"
+                  hint={mode === 'sign-up' ? 'At least 8 characters.' : undefined}
+                  label={mode === 'sign-up' ? 'Choose a password' : 'Password'}
                   onChangeText={(value) => {
                     setPassword(value);
                     setError('');
                   }}
-                  onSubmitEditing={submit}
-                  placeholder="Enter your Password"
-                  returnKeyType="done"
+                  onSubmitEditing={mode === 'sign-up' ? submitSignUp : submit}
+                  placeholder={mode === 'sign-up' ? 'Choose a password' : 'Enter your Password'}
+                  returnKeyType={mode === 'sign-up' ? 'next' : 'done'}
                   value={password}
                 />
+
+                {mode === 'sign-up' ? (
+                  <PasswordField
+                    label="Confirm password"
+                    onChangeText={(value) => {
+                      setConfirmation(value);
+                      setError('');
+                    }}
+                    onSubmitEditing={submitSignUp}
+                    placeholder="Repeat your password"
+                    returnKeyType="done"
+                    value={confirmation}
+                  />
+                ) : null}
 
                 {error ? (
                   <InlineMessage
@@ -161,9 +236,9 @@ export default function SignInScreen() {
 
                 {/* Login Button */}
                 <Button
-                  label="Sign in"
+                  label={mode === 'sign-up' ? 'Create account' : 'Sign in'}
                   loading={busy}
-                  onPress={submit}
+                  onPress={mode === 'sign-up' ? submitSignUp : submit}
                 />
 
               </View>
