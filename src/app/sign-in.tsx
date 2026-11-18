@@ -387,6 +387,7 @@ const useStyles = makeStyles((t) => ({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: t.colors.border,
+    flexGrow: 1,
     padding: spacing.lg,
     width: '100%',
     alignSelf: 'stretch',
@@ -423,7 +424,9 @@ const useStyles = makeStyles((t) => ({
 
   form: {
     width: '100%',
+    flexGrow: 1,
     gap: spacing.md,
+    justifyContent: 'space-between',
   },
 
   // About modal styles
