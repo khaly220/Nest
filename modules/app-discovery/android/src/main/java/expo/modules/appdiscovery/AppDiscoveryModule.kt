@@ -17,6 +17,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.ByteArrayOutputStream
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.Signature
 import java.util.Locale
 
@@ -74,7 +75,7 @@ class AppDiscoveryModule : Module() {
 
       AsyncFunction("signDeviceChallenge") { challenge: String ->
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        val privateKey = keyStore.getKey(deviceKeyAlias, null)
+        val privateKey = keyStore.getKey(deviceKeyAlias, null) as? PrivateKey
           ?: throw IllegalStateException("DEVICE_PRIVATE_KEY_UNAVAILABLE")
         val signature = Signature.getInstance("SHA256withECDSA")
         signature.initSign(privateKey)
