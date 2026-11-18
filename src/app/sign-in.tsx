@@ -20,7 +20,7 @@ import {
 import { NestMark } from '@/components/common/NestMark';
 import { useFamilySession } from '@/hooks/useFamilySession';
 import { useToast } from '@/hooks/useToast';
-import { makeStyles, spacing, typography } from '@/theme';
+import { makeStyles, radius, spacing, typography } from '@/theme';
 import { passwordIsStrong, usernameIsValid } from '@/utils/validation';
 
 export default function SignInScreen() {
@@ -349,7 +349,7 @@ const useStyles = makeStyles((t) => ({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(29, 70, 85, 0.2)',
+    borderColor: t.colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -383,23 +383,22 @@ const useStyles = makeStyles((t) => ({
   },
 
   card: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    backgroundColor: t.colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: t.colors.border,
     padding: spacing.lg,
     width: '100%',
     alignSelf: 'stretch',
-    flex: 1,
     gap: spacing.md,
     marginTop: spacing.sm,
+    ...t.shadows.card,
   },
 
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 30,
+    backgroundColor: t.colors.surfaceMuted,
+    borderRadius: radius.md,
     padding: 4,
   },
 
@@ -407,19 +406,19 @@ const useStyles = makeStyles((t) => ({
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 26,
+    borderRadius: radius.sm,
   },
 
-  activeTab: { backgroundColor: '#FFFFFF' },
+  activeTab: { backgroundColor: t.colors.surface, ...t.shadows.xs },
 
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: t.colors.inkSecondary,
   },
 
   activeTabText: {
-    color: '#111827',
+    color: t.colors.brandInk,
   },
 
   form: {
@@ -430,7 +429,7 @@ const useStyles = makeStyles((t) => ({
   // About modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+    backgroundColor: t.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 22,
@@ -476,7 +475,7 @@ const useStyles = makeStyles((t) => ({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(29, 70, 85, 0.08)',
+    backgroundColor: t.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -508,7 +507,7 @@ const useStyles = makeStyles((t) => ({
   aboutPrivacy: {
     padding: spacing.md,
     borderRadius: 15,
-    backgroundColor: 'rgba(29, 70, 85, 0.08)',
+    backgroundColor: t.colors.brandTint,
     gap: spacing.xs,
     marginBottom: spacing.sm,
   },

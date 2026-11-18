@@ -203,7 +203,6 @@ export default function AdministratorHomeScreen() {
         </Card>
       )}
 
-      <NoticeCard message={device.capabilityNote} title="Check Android enforcement status" tone="warning" />
     </ScreenContainer>
   );
 }

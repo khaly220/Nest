@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { StatusDot } from '@/components/common/Badge';
@@ -12,13 +12,26 @@ import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { SettingsGroup, SettingsRow } from '@/components/cards/SettingsRow';
 import { StatRow, StatTile } from '@/components/cards/StatTile';
 import { AppHeader } from '@/components/navigation/AppHeader';
-import { devicePairingSteps, loadDeviceState } from '@/data/mock/device';
+import { loadDeviceState } from '@/data/mock/device';
 import { isDeviceOwner } from '@/data/services/installedApps';
 import { useFamilySession } from '@/hooks/useFamilySession';
 import { useToast } from '@/hooks/useToast';
 import { makeStyles, radius, spacing, typography } from '@/theme';
 import type { DeviceState } from '@/types';
 import { formatRelative, pluralize } from '@/utils/format';
+import {
+  approvePairingRequest,
+  createPairingRequest,
+  issueMemberLock,
+  listCloudDevices,
+  listPairingRequests,
+  rejectPairingRequest,
+  revokeCloudDevice,
+  activatePairedDevice,
+  cancelPairingRequest,
+  type CloudDevice,
+  type PairingRequest,
+} from '@/data/services/cloudService';
 
 const protectionLabel: Record<DeviceState['protection'], string> = {
   protected: 'Protected',
@@ -28,7 +41,7 @@ const protectionLabel: Record<DeviceState['protection'], string> = {
 
 /** Screen 13 — device management. Reports honestly what is and is not enforced. */
 export default function DeviceScreen() {
-  const { activeMember, members, family, memberRestrictionWarning } = useFamilySession();
+  const { activeMember, members, family, memberRestrictionWarning, admin } = useFamilySession();
   const router = useRouter();
   const toast = useToast();
   const styles = useStyles();
@@ -36,6 +49,13 @@ export default function DeviceScreen() {
   const [pairingOpen, setPairingOpen] = useState(false);
   const [deviceOwner, setDeviceOwner] = useState<boolean | null>(null);
   const [deviceOwnerError, setDeviceOwnerError] = useState('');
+  const [cloudDevices, setCloudDevices] = useState<CloudDevice[]>([]);
+  const [pairingRequests, setPairingRequests] = useState<PairingRequest[]>([]);
+  const [familyIdToJoin, setFamilyIdToJoin] = useState('');
+  const [createdRequestId, setCreatedRequestId] = useState('');
+  const [pairingCode, setPairingCode] = useState('');
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [cloudError, setCloudError] = useState('');
 
   const checkDeviceOwner = useCallback(() => isDeviceOwner(), []);
 
@@ -56,6 +76,23 @@ export default function DeviceScreen() {
       active = false;
     };
   }, [checkDeviceOwner]);
+
+  useEffect(() => {
+    if (!family) return;
+    let active = true;
+    Promise.all([listCloudDevices(family.id), listPairingRequests(family.id)])
+      .then(([devices, requests]) => {
+        if (!active) return;
+        setCloudDevices(devices);
+        setPairingRequests(requests);
+      })
+      .catch((cause) => {
+        if (active) setCloudError(cause instanceof Error ? cause.message : 'Cloud status unavailable');
+      });
+    return () => {
+      active = false;
+    };
+  }, [family]);
 
   const refresh = useCallback(() => {
     setDevice(loadDeviceState(activeMember?.fullName ?? null));
@@ -183,23 +220,206 @@ export default function DeviceScreen() {
       <ModalSheet
         footer={<Button label="Got it" onPress={() => setPairingOpen(false)} />}
         onClose={() => setPairingOpen(false)}
-        subtitle="Pairing runs on the new device itself. This screen only shows the steps."
+        subtitle="Pairing is authorized only by the original owner device."
         title="Pair another device"
         visible={pairingOpen}
       >
-        <NoticeCard
-          message="Pairing is an interface preview in this build. No device is contacted, and no profiles are copied anywhere."
-          title="Preview only"
-          tone="warning"
-        />
-        {devicePairingSteps.map((step, index) => (
-          <View key={step} style={styles.step}>
-            <View style={styles.stepIndex}>
-              <Text style={styles.stepIndexLabel}>{index + 1}</Text>
+        {!!cloudError ? <NoticeCard message={cloudError} title="Cloud unavailable" tone="warning" /> : null}
+        {family && cloudDevices.find((item) => item.role === 'owner') ? (
+          <>
+            <SectionHeader subtitle="Requests waiting for owner approval." title="Pending pairing requests" />
+            {pairingRequests.filter((item) => item.status === 'pending').map((request) => (
+              <View key={request.id} style={styles.cloudRow}>
+                <View style={styles.cloudCopy}>
+                  <Text style={styles.cloudTitle}>{request.device_name ?? 'Unknown device'}</Text>
+                  <Text style={styles.cloudMeta}>Code {request.pairing_code}</Text>
+                </View>
+                <Button
+                  label="Approve"
+                  loading={cloudBusy}
+                  onPress={async () => {
+                    setCloudBusy(true);
+                    setCloudError('');
+                    try {
+                      await approvePairingRequest(request.id);
+                      setPairingRequests((current) =>
+                        current.map((item) =>
+                          item.id === request.id ? { ...item, status: 'approved' } : item,
+                        ),
+                      );
+                      toast.show('Pairing approved', 'success');
+                    } catch (cause) {
+                      setCloudError(cause instanceof Error ? cause.message : 'Pairing could not be approved');
+                    } finally {
+                      setCloudBusy(false);
+                    }
+                  }}
+                />
+                <Button
+                  label="Reject"
+                  loading={cloudBusy}
+                  onPress={async () => {
+                    setCloudBusy(true);
+                    try {
+                      await rejectPairingRequest(request.id);
+                      setPairingRequests((current) =>
+                        current.map((item) =>
+                          item.id === request.id ? { ...item, status: 'rejected' } : item,
+                        ),
+                      );
+                    } catch (cause) {
+                      setCloudError(cause instanceof Error ? cause.message : 'Pairing could not be rejected');
+                    } finally {
+                      setCloudBusy(false);
+                    }
+                  }}
+                  variant="secondary"
+                />
+              </View>
+            ))}
+          </>
+        ) : (
+          <>
+            <Text style={styles.cloudTitle}>Join an existing family</Text>
+            <TextInput
+              onChangeText={setFamilyIdToJoin}
+              placeholder="Family ID"
+              placeholderTextColor="#69756F"
+              style={styles.cloudInput}
+              value={familyIdToJoin}
+            />
+            <Button
+              label="Create pairing request"
+              loading={cloudBusy}
+              onPress={async () => {
+                if (!familyIdToJoin.trim()) {
+                  setCloudError('Enter the family ID shown by the owner device.');
+                  return;
+                }
+                setCloudBusy(true);
+                setCloudError('');
+                try {
+                  const request = await createPairingRequest(familyIdToJoin.trim());
+                  setCreatedRequestId(request.request_id);
+                  setPairingCode(request.pairing_code);
+                  toast.show(`Pairing code: ${request.pairing_code}`, 'success');
+                } catch (cause) {
+                  setCloudError(cause instanceof Error ? cause.message : 'Pairing request could not be created');
+                } finally {
+                  setCloudBusy(false);
+                }
+              }}
+            />
+            {pairingCode ? (
+              <NoticeCard
+                message={`Pairing code ${pairingCode}. The owner must approve request ${createdRequestId}.`}
+                title="Waiting for owner approval"
+                tone="warning"
+              />
+            ) : null}
+            {createdRequestId ? (
+              <>
+                <Button
+                  label="Activate after approval"
+                  loading={cloudBusy}
+                  onPress={async () => {
+                    setCloudBusy(true);
+                    setCloudError('');
+                    try {
+                      await activatePairedDevice(createdRequestId);
+                      toast.show('Pairing confirmed by the server', 'success');
+                      setPairingOpen(false);
+                    } catch (cause) {
+                      setCloudError(cause instanceof Error ? cause.message : 'Pairing is not approved yet');
+                    } finally {
+                      setCloudBusy(false);
+                    }
+                  }}
+                  variant="secondary"
+                />
+                <Button
+                  label="Cancel pairing request"
+                  loading={cloudBusy}
+                  onPress={async () => {
+                    setCloudBusy(true);
+                    setCloudError('');
+                    try {
+                      await cancelPairingRequest(createdRequestId);
+                      setCreatedRequestId('');
+                      setPairingCode('');
+                      toast.show('Pairing request cancelled', 'success');
+                    } catch (cause) {
+                      setCloudError(cause instanceof Error ? cause.message : 'Pairing could not be cancelled');
+                    } finally {
+                      setCloudBusy(false);
+                    }
+                  }}
+                  variant="secondary"
+                />
+              </>
+            ) : null}
+          </>
+        )}
+
+        <SectionHeader subtitle="Paired devices synchronized for this family." title="Family devices" />
+        {cloudDevices.map((pairedDevice) => (
+          <View key={pairedDevice.id} style={styles.cloudRow}>
+            <View style={styles.cloudCopy}>
+              <Text style={styles.cloudTitle}>{pairedDevice.name ?? pairedDevice.id}</Text>
+              <Text style={styles.cloudMeta}>
+                {pairedDevice.role} · {pairedDevice.status}
+              </Text>
             </View>
-            <Text style={styles.stepLabel}>{step}</Text>
+            {pairedDevice.role === 'secondary' && pairedDevice.status === 'paired' ? (
+              <Button
+                label="Revoke"
+                onPress={async () => {
+                  try {
+                    await revokeCloudDevice(pairedDevice.id);
+                    setCloudDevices((current) =>
+                      current.map((item) =>
+                        item.id === pairedDevice.id ? { ...item, status: 'revoked' } : item,
+                      ),
+                    );
+                    toast.show('Device revoked', 'success');
+                  } catch (cause) {
+                    setCloudError(cause instanceof Error ? cause.message : 'Device could not be revoked');
+                  }
+                }}
+                variant="secondary"
+              />
+            ) : null}
           </View>
         ))}
+
+        {admin && family ? (
+          <>
+            <SectionHeader subtitle="Only the original owner can issue a Nest-session lock." title="Remote lock" />
+            {members.map((member) =>
+              cloudDevices
+                .filter((item) => item.role === 'secondary' && item.status === 'paired')
+                .map((pairedDevice) => (
+                  <Button
+                    key={`${member.id}-${pairedDevice.id}`}
+                    label={`Lock ${member.fullName} on ${pairedDevice.name ?? pairedDevice.id}`}
+                    onPress={async () => {
+                      setCloudBusy(true);
+                      setCloudError('');
+                      try {
+                        await issueMemberLock(pairedDevice.id, member.id);
+                        toast.show('Lock command is pending until the device reconnects', 'success');
+                      } catch (cause) {
+                        setCloudError(cause instanceof Error ? cause.message : 'Lock command could not be issued');
+                      } finally {
+                        setCloudBusy(false);
+                      }
+                    }}
+                    variant="secondary"
+                  />
+                )),
+            )}
+          </>
+        ) : null}
       </ModalSheet>
 
       <NoticeCard
@@ -215,6 +435,23 @@ const useStyles = makeStyles((t) => ({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   statusText: { flex: 1 },
   actions: { gap: spacing.xs },
+  cloudRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  cloudCopy: { flex: 1, gap: 2 },
+  cloudTitle: { ...typography.caption, color: t.colors.ink, fontWeight: '700' },
+  cloudMeta: { ...typography.micro, color: t.colors.inkSecondary },
+  cloudInput: {
+    ...typography.body,
+    color: t.colors.ink,
+    borderWidth: 1,
+    borderColor: t.colors.borderStrong,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   step: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepIndex: {
     width: 30,

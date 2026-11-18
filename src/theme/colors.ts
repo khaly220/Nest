@@ -1,5 +1,5 @@
 /**
- * Nest design tokens — professional blue identity.
+ * Nest design tokens — warm coral identity.
  *
  * Two palettes are provided, `lightColors` and `darkColors`. Screens and
  * components must never import a palette directly: they read the active palette
@@ -7,17 +7,17 @@
  * `makeStyles()` so the whole surface re-renders the moment the theme changes.
  *
  * Token names are role based so their meaning survives a brand tweak:
- *   brand       primary action blue
- *   brandDeep   solid deep blue used behind white text
+ *   brand       primary action coral
+ *   brandDeep   solid deep coral used behind white text
  *   brandInk    brand-coloured glyphs and headings on light surfaces
  *   brandSoft   soft brand tint behind icons and pills
- *   navy        darkest surface (hero panels, table headers)
- *   accent      desaturated blue used for muted panels and avatars
+ *   navy        darkest surface (hero panels and overlays)
+ *   accent      soft coral used for muted panels and avatars
  */
 export type NestColors = {
-  /** Primary action blue. */
+  /** Primary action coral. */
   brand: string;
-  /** Solid deep blue — used behind white content. */
+  /** Solid deep coral — used behind white content. */
   brandDeep: string;
   /** Brand-coloured glyphs, headings and links on light surfaces. */
   brandInk: string;
@@ -25,7 +25,7 @@ export type NestColors = {
   brandSoft: string;
   /** Darkest surface — hero panels and overlays. */
   navy: string;
-  /** Desaturated blue for muted panels and avatars. */
+  /** Soft coral for muted panels and avatars. */
   accent: string;
 
   /** App background. */
@@ -66,73 +66,73 @@ export type NestColors = {
 };
 
 export const lightColors: NestColors = {
-  brand: '#2563EB',
-  brandDeep: '#1E3A8A',
-  brandInk: '#1D4ED8',
-  brandSoft: '#DBEAFE',
-  navy: '#0F172A',
-  accent: '#93C5FD',
+  brand: '#C84A28',
+  brandDeep: '#A93D21',
+  brandInk: '#B94221',
+  brandSoft: '#FFE9DF',
+  navy: '#30231E',
+  accent: '#FDBA9A',
 
-  background: '#F8FAFC',
+  background: '#FFF8F4',
   surface: '#FFFFFF',
-  surfaceMuted: '#F1F5F9',
+  surfaceMuted: '#FFF1EA',
 
-  ink: '#0F172A',
-  inkSecondary: '#64748B',
-  inkMuted: '#94A3B8',
+  ink: '#29231F',
+  inkSecondary: '#776B64',
+  inkMuted: '#A99B92',
 
-  border: '#E2E8F0',
-  borderStrong: '#CBD5E1',
+  border: '#F0E2DA',
+  borderStrong: '#E4CEC2',
 
   warning: '#D97706',
-  danger: '#DC2626',
+  danger: '#C63B32',
   success: '#16A34A',
 
-  brandTint: '#EFF6FF',
-  surfaceTint: '#F8FAFC',
-  neutralTint: '#F1F5F9',
+  brandTint: '#FFF3ED',
+  surfaceTint: '#FFF8F4',
+  neutralTint: '#F8F1EC',
   warningTint: '#FFFBEB',
-  dangerTint: '#FEF2F2',
+  dangerTint: '#FFF0EE',
   successTint: '#F0FDF4',
 
   white: '#FFFFFF',
-  overlay: 'rgba(15, 23, 42, 0.45)',
+  overlay: 'rgba(48, 35, 30, 0.45)',
   onDark: 'rgba(255, 255, 255, 0.88)',
   onDarkMuted: 'rgba(255, 255, 255, 0.62)',
 };
 
 export const darkColors: NestColors = {
-  brand: '#3B82F6',
-  brandDeep: '#1E3A8A',
-  brandInk: '#93C5FD',
-  brandSoft: '#1E3A8A',
-  navy: '#020617',
-  accent: '#1E293B',
+  brand: '#FF8A65',
+  brandDeep: '#A93D21',
+  brandInk: '#FFAA8D',
+  brandSoft: '#49271F',
+  navy: '#130E0C',
+  accent: '#3B2923',
 
-  background: '#0B1220',
-  surface: '#111C2E',
-  surfaceMuted: '#16233A',
+  background: '#171210',
+  surface: '#211A17',
+  surfaceMuted: '#2A211D',
 
-  ink: '#E8EEF7',
-  inkSecondary: '#94A3B8',
-  inkMuted: '#64748B',
+  ink: '#F5ECE7',
+  inkSecondary: '#B9A69C',
+  inkMuted: '#85736A',
 
-  border: '#1E293B',
-  borderStrong: '#334155',
+  border: '#3B2E28',
+  borderStrong: '#58443A',
 
   warning: '#F59E0B',
-  danger: '#F87171',
+  danger: '#C63B32',
   success: '#4ADE80',
 
-  brandTint: '#132441',
-  surfaceTint: '#0F1B2E',
-  neutralTint: '#132033',
-  warningTint: '#2A1F0B',
-  dangerTint: '#2A1414',
-  successTint: '#0D2418',
+  brandTint: '#35201A',
+  surfaceTint: '#1C1512',
+  neutralTint: '#2A211D',
+  warningTint: '#30220F',
+  dangerTint: '#321A17',
+  successTint: '#14251A',
 
   white: '#FFFFFF',
-  overlay: 'rgba(2, 6, 23, 0.62)',
+  overlay: 'rgba(19, 14, 12, 0.68)',
   onDark: 'rgba(255, 255, 255, 0.9)',
   onDarkMuted: 'rgba(255, 255, 255, 0.6)',
 };
@@ -140,9 +140,9 @@ export const darkColors: NestColors = {
 export type ColorName = keyof NestColors;
 
 export type NestGradients = {
-  /** Deep navy → blue hero panel. */
+  /** Deep warm hero panel. */
   hero: readonly [string, string, ...string[]];
-  /** Two-stop brand gradient for primary buttons. */
+  /** Two-stop coral gradient for primary buttons. */
   brand: readonly [string, string, ...string[]];
   /** Very soft brand wash for tinted sections. */
   soft: readonly [string, string, ...string[]];
@@ -151,19 +151,19 @@ export type NestGradients = {
 };
 
 export const lightGradients: NestGradients = {
-  hero: ['#0F172A', '#1E3A8A', '#2563EB'],
-  brand: ['#3B82F6', '#2563EB'],
-  soft: ['#FFFFFF', '#EFF6FF'],
-  neutral: ['#F8FAFC', '#F1F5F9'],
-  surface: ['#FFFFFF', '#F8FAFC'],
+  hero: ['#30231E', '#6D3829', '#A93D21'],
+  brand: ['#C84A28', '#B94221'],
+  soft: ['#FFFCFA', '#FFEFE7'],
+  neutral: ['#FFF8F4', '#F8F1EC'],
+  surface: ['#FFFFFF', '#FFF8F4'],
 };
 
 export const darkGradients: NestGradients = {
-  hero: ['#020617', '#0F172A', '#1E3A8A'],
-  brand: ['#3B82F6', '#2563EB'],
-  soft: ['#0F1B2E', '#132441'],
-  neutral: ['#0B1220', '#132033'],
-  surface: ['#111C2E', '#0B1220'],
+  hero: ['#130E0C', '#30201A', '#633323'],
+  brand: ['#C84A28', '#B94221'],
+  soft: ['#1C1512', '#35201A'],
+  neutral: ['#171210', '#2A211D'],
+  surface: ['#211A17', '#171210'],
 };
 
 /**

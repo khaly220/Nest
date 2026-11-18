@@ -20,6 +20,13 @@ import {
 import { applyMemberRestrictions, clearMemberRestrictions } from '@/data/services/accessService';
 import type { Family, FamilyMember } from '@/data/familyStore';
 import type { ActionResult, AgeGroup } from '@/types';
+import {
+  claimCloudFamily,
+  completeCloudCommand,
+  receivePendingCommands,
+  updateCloudFamilyDetails,
+  upsertCloudFamilyPolicy,
+} from '@/data/services/cloudService';
 
 export type Administrator = { id: string; username: string };
 export type MemberDraft = { fullName: string; ageGroup: AgeGroup; avatar: string; pin?: string };
@@ -125,6 +132,56 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setActiveMember((current) => (current?.id === activeMember.id ? null : current));
     });
     return () => subscription.remove();
+  }, [activeMember]);
+
+  useEffect(() => {
+    if (!activeMember) return;
+
+    let disposed = false;
+    const pollCommands = async () => {
+      try {
+        const commands = await receivePendingCommands();
+        for (const command of commands) {
+          if (disposed) return;
+          if (
+            command.command_type !== 'lock_nest_session' ||
+            command.payload.member_id !== activeMember.id
+          ) continue;
+          try {
+            await clearMemberRestrictions();
+            await completeCloudCommand(command.id, 'executed');
+            if (!disposed) {
+              setLockedMemberId(activeMember.id);
+              setActiveMember(null);
+              setMemberRestrictionWarning('');
+            }
+          } catch (cause) {
+            await completeCloudCommand(
+              command.id,
+              'failed',
+              cause instanceof Error ? cause.message : 'Lock execution failed',
+            );
+          }
+        }
+      } catch (cause) {
+        console.warn('[NestSession] Cloud command polling unavailable', {
+          errorName: cause instanceof Error ? cause.name : 'UnknownError',
+          errorMessage: cause instanceof Error ? cause.message : String(cause),
+        });
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void pollCommands();
+    });
+    const interval = setInterval(pollCommands, 30_000);
+    void pollCommands();
+
+    return () => {
+      disposed = true;
+      subscription.remove();
+      clearInterval(interval);
+    };
   }, [activeMember]);
 
   useEffect(() => {
@@ -246,6 +303,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!admin) return { ok: false, error: 'Sign in as an administrator first.' };
       try {
         const saved = await createFamilyRecord(admin.id, familyName, description);
+        try {
+          await claimCloudFamily({
+            familyId: saved.id,
+            familyName: saved.familyName,
+            familyDescription: saved.description,
+          });
+        } catch (cause) {
+          console.warn('[NestSession] Family remains local because cloud ownership was unavailable', {
+            errorName: cause instanceof Error ? cause.name : 'UnknownError',
+            errorMessage: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
         setFamily(saved);
         setMembers([]);
         return { ok: true };
@@ -261,6 +330,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!admin || !family) return { ok: false, error: 'Sign in as an administrator first.' };
       try {
         const saved = await updateFamilyRecord(admin.id, family.id, familyName, description);
+        try {
+          await updateCloudFamilyDetails(saved.id, saved.familyName, saved.description);
+        } catch (cause) {
+          console.warn('[NestSession] Family details remained local; cloud synchronization failed', {
+            errorName: cause instanceof Error ? cause.name : 'UnknownError',
+            errorMessage: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
         setFamily(saved);
         return { ok: true };
       } catch (cause) {
@@ -279,6 +356,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!admin || !family) return { ok: false, error: 'Sign in as an administrator first.' };
       try {
         const member = await addMember(admin.id, family.id, draft);
+        try {
+          await upsertCloudFamilyPolicy(family.id, {
+            member_id: member.id,
+            action: 'member_added',
+            age_group: member.ageGroup,
+          });
+        } catch (cause) {
+          console.warn('[NestSession] Member profile remains local; cloud policy sync failed', {
+            errorName: cause instanceof Error ? cause.name : 'UnknownError',
+            errorMessage: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
         setMembers((current) =>
           [...current, member].sort((first, second) => first.createdAt.localeCompare(second.createdAt)),
         );
@@ -299,6 +388,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!admin || !family) return { ok: false, error: 'Sign in as an administrator first.' };
       try {
         await updateMember(admin.id, family.id, memberId, draft);
+        try {
+          await upsertCloudFamilyPolicy(family.id, {
+            member_id: memberId,
+            action: draft.pin ? 'member_updated_pin_reset' : 'member_updated',
+            age_group: draft.ageGroup,
+          });
+        } catch (cause) {
+          console.warn('[NestSession] Member update remains local; cloud policy sync failed', {
+            errorName: cause instanceof Error ? cause.name : 'UnknownError',
+            errorMessage: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
         await refreshMembers();
         return { ok: true };
       } catch (cause) {
@@ -317,6 +418,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!admin || !family) return { ok: false, error: 'Sign in as an administrator first.' };
       try {
         await removeMember(admin.id, family.id, memberId);
+        try {
+          await upsertCloudFamilyPolicy(family.id, {
+            member_id: memberId,
+            action: 'member_removed',
+          });
+        } catch (cause) {
+          console.warn('[NestSession] Member removal remains local; cloud policy sync failed', {
+            errorName: cause instanceof Error ? cause.name : 'UnknownError',
+            errorMessage: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
         await refreshMembers();
         return { ok: true };
       } catch (cause) {

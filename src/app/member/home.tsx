@@ -127,10 +127,6 @@ export default function MemberHomeScreen() {
 
       <Button icon="apps-outline" label="Open my applications" onPress={() => router.push('/member/apps')} variant="secondary" />
 
-      <NoticeCard
-        message="Your administrator decides which applications are available and can change them at any time. Nest stores those decisions on this device."
-        title="Set by your administrator"
-      />
       {Platform.OS !== 'android' ? (
         <NoticeCard
           message="This device does not support blocking other installed applications. Cross-app enforcement is available only on fully managed Android devices."

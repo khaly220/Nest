@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import { Button, IconButton } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { ConfirmDialog } from '@/components/common/ModalSheet';
-import { NoticeCard } from '@/components/common/InlineMessage';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { SettingsGroup, SettingsRow } from '@/components/cards/SettingsRow';
 import { SegmentedControl } from '@/components/forms/ChoiceRow';
@@ -187,11 +186,6 @@ export default function SettingsTabScreen() {
           Signing out locks the administration window. Member profiles, boundaries and history stay on this device.
         </Text>
       </View>
-
-      <NoticeCard
-        message="Nest keeps every decision on this device inside an encrypted database. Nothing on this screen sends data to a server."
-        title="Stored locally"
-      />
 
       <ConfirmDialog
         confirmLabel="Sign out"

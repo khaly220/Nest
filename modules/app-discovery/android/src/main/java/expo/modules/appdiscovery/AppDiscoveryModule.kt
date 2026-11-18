@@ -9,13 +9,20 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Process
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.ByteArrayOutputStream
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.Signature
 import java.util.Locale
 
 class AppDiscoveryModule : Module() {
+  private val deviceKeyAlias = "nest_device_identity_v1"
+
   override fun definition() = ModuleDefinition {
     Name("AppDiscovery")
 
@@ -31,6 +38,48 @@ class AppDiscoveryModule : Module() {
       val policyManager = devicePolicyManager(context)
       if (!policyManager.isDeviceOwnerApp(context.packageName)) {
         throw IllegalStateException("DEVICE_OWNER_REQUIRED")
+      }
+
+      AsyncFunction("generateDeviceKeyPair") {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (!keyStore.containsAlias(deviceKeyAlias)) {
+          val generator = KeyPairGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_EC,
+            "AndroidKeyStore"
+          )
+          val spec = KeyGenParameterSpec.Builder(
+            deviceKeyAlias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+          )
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setUserAuthenticationRequired(false)
+            .setIsStrongBoxBacked(false)
+            .build()
+          generator.initialize(spec)
+          generator.generateKeyPair()
+        }
+
+        val publicKey = keyStore.getCertificate(deviceKeyAlias).publicKey
+        Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
+      }
+
+      AsyncFunction("getDevicePublicKey") {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (!keyStore.containsAlias(deviceKeyAlias)) {
+          throw IllegalStateException("DEVICE_KEY_NOT_GENERATED")
+        }
+        val publicKey = keyStore.getCertificate(deviceKeyAlias).publicKey
+        Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
+      }
+
+      AsyncFunction("signDeviceChallenge") { challenge: String ->
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val privateKey = keyStore.getKey(deviceKeyAlias, null)
+          ?: throw IllegalStateException("DEVICE_PRIVATE_KEY_UNAVAILABLE")
+        val signature = Signature.getInstance("SHA256withECDSA")
+        signature.initSign(privateKey)
+        signature.update(challenge.toByteArray(Charsets.UTF_8))
+        Base64.encodeToString(signature.sign(), Base64.NO_WRAP)
       }
 
       val admin = ComponentName(context, AppDeviceAdminReceiver::class.java)

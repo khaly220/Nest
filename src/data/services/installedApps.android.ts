@@ -6,6 +6,9 @@ declare class AppDiscoveryModule extends NativeModule {
   getInstalledApps: () => Promise<InstalledApp[]>;
   isDeviceOwner: () => Promise<boolean>;
   applyBlockedApps: (packageNames: string[]) => Promise<void>;
+  generateDeviceKeyPair: () => Promise<string>;
+  getDevicePublicKey: () => Promise<string>;
+  signDeviceChallenge: (challenge: string) => Promise<string>;
 }
 
 const AppDiscovery = requireOptionalNativeModule<AppDiscoveryModule>('AppDiscovery');
