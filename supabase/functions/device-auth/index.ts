@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { derSignatureToRaw } from '../_shared/ecdsa.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,54 +9,6 @@ const corsHeaders = {
 function decodeBase64(value: string): Uint8Array {
   const binary = atob(value);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-function derSignatureToRaw(signature: Uint8Array): Uint8Array {
-  function readLength(index: number): [number, number] {
-    const first = signature[index];
-    if (first === undefined) throw new Error('Malformed DER signature');
-    if ((first & 0x80) === 0) return [first, index + 1];
-    const lengthBytes = first & 0x7f;
-    if (lengthBytes === 0 || lengthBytes > 4) throw new Error('Malformed DER signature');
-    let length = 0;
-    for (let i = 0; i < lengthBytes; i++) {
-      const next = signature[index + 1 + i];
-      if (next === undefined) throw new Error('Malformed DER signature');
-      length = length * 256 + next;
-    }
-    return [length, index + 1 + lengthBytes];
-  }
-
-  if (signature[0] !== 0x30) throw new Error('Malformed DER signature');
-  const [sequenceLength, sequenceContentIndex] = readLength(1);
-  if (sequenceContentIndex + sequenceLength !== signature.length) {
-    throw new Error('Malformed DER signature');
-  }
-  let offset = sequenceContentIndex;
-
-  if (signature[offset] !== 0x02) throw new Error('Malformed DER signature');
-  const [rLength, rStartIndex] = readLength(offset + 1);
-  const rStart = rStartIndex;
-  if (rStart + rLength > signature.length) throw new Error('Malformed DER signature');
-  let r = signature.slice(rStart, rStart + rLength);
-  offset = rStart + rLength;
-
-  if (signature[offset] !== 0x02) throw new Error('Malformed DER signature');
-  const [sLength, sStartIndex] = readLength(offset + 1);
-  const sStart = sStartIndex;
-  if (sStart + sLength > signature.length) throw new Error('Malformed DER signature');
-  let s = signature.slice(sStart, sStart + sLength);
-
-  if (r[0] === 0 && r.length > 32) r = r.slice(1);
-  if (s[0] === 0 && s.length > 32) s = s.slice(1);
-  if (r.length > 32 || s.length > 32 || r.length === 0 || s.length === 0) {
-    throw new Error('Malformed ECDSA signature');
-  }
-
-  const raw = new Uint8Array(64);
-  raw.set(r, 32 - r.length);
-  raw.set(s, 64 - s.length);
-  return raw;
 }
 
 Deno.serve(async (request) => {
@@ -91,6 +44,26 @@ Deno.serve(async (request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    const { data: registeredDevice, error: deviceError } = await admin
+      .from('family_devices')
+      .select('auth_user_id, public_key, role, status, revoked_at')
+      .eq('id', deviceId)
+      .maybeSingle();
+    if (deviceError) throw deviceError;
+    if (
+      registeredDevice &&
+      (registeredDevice.status === 'revoked' ||
+        registeredDevice.revoked_at !== null ||
+        registeredDevice.public_key !== publicKey ||
+        (registeredDevice.status === 'paired' &&
+          registeredDevice.auth_user_id !== userData.user.id) ||
+        (registeredDevice.status === 'pending' &&
+          (registeredDevice.role !== 'secondary' || registeredDevice.auth_user_id !== null)) ||
+        !['paired', 'pending'].includes(registeredDevice.status))
+    ) {
+      return new Response('Device is not authorized', { status: 403, headers: corsHeaders });
+    }
 
     if (action === 'challenge') {
       const nonce = crypto.randomUUID();
