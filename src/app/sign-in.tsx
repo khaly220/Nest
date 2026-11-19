@@ -393,6 +393,7 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'stretch',
     gap: spacing.md,
     marginTop: spacing.sm,
+    justifyContent: 'center',
     ...t.shadows.card,
   },
 
@@ -424,9 +425,7 @@ const useStyles = makeStyles((t) => ({
 
   form: {
     width: '100%',
-    flexGrow: 1,
     gap: spacing.md,
-    justifyContent: 'space-between',
   },
 
   // About modal styles
