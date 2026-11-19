@@ -59,7 +59,8 @@ export async function getOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
     publicKey = await module.generateDeviceKeyPair();
     await SecureStore.setItemAsync(DEVICE_PUBLIC_KEY_KEY, publicKey);
   } else if (!publicKey && Platform.OS === 'ios') {
-    const identity = createP256DeviceKeyPair();
+    const seed = await Crypto.getRandomBytesAsync(48);
+    const identity = createP256DeviceKeyPair(seed);
     await SecureStore.setItemAsync(DEVICE_PRIVATE_KEY_KEY, identity.privateKey, {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });

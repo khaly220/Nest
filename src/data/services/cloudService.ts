@@ -153,6 +153,7 @@ export async function activatePairedDevice(requestId: string) {
 
 export async function listCloudDevices(familyId: string) {
   const client = await ensureDeviceSession();
+  await authenticateDeviceWithServer(client);
   const { data, error } = await client
     .from('family_devices')
     .select('*')
@@ -164,6 +165,7 @@ export async function listCloudDevices(familyId: string) {
 
 export async function listPairingRequests(familyId: string) {
   const client = await ensureDeviceSession();
+  await authenticateDeviceWithServer(client);
   const { data, error } = await client
     .from('device_pairing_requests')
     .select('*')

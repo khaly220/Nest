@@ -132,7 +132,6 @@ Deno.serve(async (request) => {
       );
       if (!verified) return new Response('Invalid signature', { status: 403, headers: corsHeaders });
 
-      await admin.from('device_auth_challenges').delete().eq('auth_user_id', userData.user.id);
       const authenticatedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       const { error: sessionError } = await admin.from('device_auth_sessions').upsert({
         auth_user_id: userData.user.id,
@@ -141,6 +140,13 @@ Deno.serve(async (request) => {
         authenticated_until: authenticatedUntil,
       });
       if (sessionError) throw sessionError;
+
+      const { error: deleteChallengeError } = await admin
+        .from('device_auth_challenges')
+        .delete()
+        .eq('auth_user_id', userData.user.id)
+        .eq('nonce', challenge.nonce);
+      if (deleteChallengeError) throw deleteChallengeError;
 
       return new Response(JSON.stringify({ authenticated_until: authenticatedUntil }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

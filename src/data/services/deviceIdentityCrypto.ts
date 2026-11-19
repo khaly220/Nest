@@ -47,19 +47,20 @@ export function decodeBase64(value: string) {
 
 export function isP256SpkiPublicKey(publicKey: string) {
   try {
+    if (!/^[A-Za-z0-9+/]{122}==$/.test(publicKey)) return false;
     const decoded = decodeBase64(publicKey);
     return (
       decoded.length === SPKI_PREFIX.length + 65 &&
       SPKI_PREFIX.every((byte, index) => decoded[index] === byte) &&
-      decoded[SPKI_PREFIX.length] === 0x04
+      p256.utils.isValidPublicKey(decoded.slice(SPKI_PREFIX.length), false)
     );
   } catch {
     return false;
   }
 }
 
-export function createP256DeviceKeyPair() {
-  const privateKey = p256.utils.randomSecretKey();
+export function createP256DeviceKeyPair(seed?: Uint8Array) {
+  const privateKey = p256.utils.randomSecretKey(seed);
   const rawPublicKey = p256.getPublicKey(privateKey, false);
   const spkiPublicKey = new Uint8Array(SPKI_PREFIX.length + rawPublicKey.length);
   spkiPublicKey.set(SPKI_PREFIX);
